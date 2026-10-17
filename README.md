@@ -1,122 +1,124 @@
-# 🎰 AutoLotto
-
-동행복권 로또 6/45 자동 구매 & 당첨 확인 앱
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.2-blue.svg)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203%20Expressive-green.svg)](https://developer.android.com/jetpack/compose)
-[![Platform](https://img.shields.io/badge/Platform-Android%2012+-green.svg)](https://developer.android.com)
-
-
 <p align="center">
-  <a href="https://autolotto.umicorp.kr">
-    <img src="docs/screenshots/landing.png" width="100%" />
-  </a>
+  <img src="docs/screenshots/app_icon_512.png" width="128" height="128" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
 </p>
 
-## ✨ 주요 기능
-
-- **자동 구매** — 설정한 요일/시간에 자동으로 로또 구매 (최대 5게임)
-- **즉시 구매** — 번호 탭에서 저장한 게임을 바로 결제, 이미 구매한 회차는 자동 게임 추가 구매 (주간 5게임 한도는 서버가 검증)
-- **수동/자동 번호** — 게임별로 수동 번호 지정 또는 자동 생성 선택
-- **당첨 확인** — 매주 토요일 21:00 자동 당첨 확인 & 푸시 알림
-- **구매 기록** — 최근 3개월 자동 조회 + '더 보기'로 최대 1년, 게임별 번호·등수·당첨금 한눈에 확인
-- **보안 저장** — 계정 정보는 Android Keystore(EncryptedSharedPreferences) 암호화 저장
-- **다국어** — 한국어·영어·일본어, 설정에서 언어 선택 (기본: 시스템 언어)
-- **모던 디자인** — Material 3 Expressive 'Lucky Gloss', 네이티브 Jetpack Compose · 스프링 인터랙션
-- **자동 업데이트** — 앱 내에서 새 버전 원탭 설치, 설치 전 패키지명·서명 검증 (사이드로드 배포)
-
-## 📱 스크린샷
+<h1 align="center">로또루틴 (LottoRoutine)</h1>
 
 <p align="center">
-  <img src="docs/screenshots/home.jpg" width="200" />
-  <img src="docs/screenshots/numbers.jpg" width="200" />
-  <img src="docs/screenshots/history.jpg" width="200" />
-  <img src="docs/screenshots/settings.jpg" width="200" />
+  <b>매주 반복되는 행운의 자동화 루틴 · 동행복권 6/45 스마트 자동 구매 & 당첨 비서</b>
 </p>
 
-## 🔧 빌드 방법
+<p align="center">
+  <a href="https://github.com/ree9622/autolotto/releases/latest"><img src="https://img.shields.io/badge/Release-v1.2.0-blue.svg?style=flat-square&logo=android" alt="Release v1.2.0" /></a>
+  <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2-7F52FF.svg?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin 2.2" /></a>
+  <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material%203%20Expressive-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Material 3 Expressive" /></a>
+  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android%2012%2B-3DDC84.svg?style=flat-square&logo=android&logoColor=white" alt="Android 12+" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License" /></a>
+</p>
 
-### 요구 사항
+---
 
-- Android SDK 36 (compileSdk / targetSdk 36), minSdk 31 (Android 12+)
-- JDK 17
-- Android Studio 또는 Gradle
+<p align="center">
+  <img src="docs/screenshots/banner-motion.webp" width="100%" style="border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.5);" />
+</p>
 
-### 빌드 & 설치
+## ✨ 핵심 기능
 
-```bash
-# 디버그 빌드 + 유닛 테스트
-./gradlew :app:assembleDebug :app:testDebugUnitTest
+<table>
+  <tr>
+    <td width="50%">
+      <h3>⏰ 스마트 자동 구매</h3>
+      <p>매주 원하는 요일과 시간에 최대 5게임까지 지정한 번호 또는 자동으로 오차 없이 자동 구매합니다.</p>
+    </td>
+    <td width="50%">
+      <h3>⚡ 원클릭 즉시 구매</h3>
+      <p>저장해둔 조합을 바로 결제하고 추가 게임을 원터치로 구매할 수 있습니다. (서버 주간 5게임 한도 연동)</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>🎯 맞춤 번호 관리</h3>
+      <p>자신만의 고정 수동 번호와 AI/랜덤 자동 번호를 자유롭게 믹스매치하여 구성할 수 있습니다.</p>
+    </td>
+    <td width="50%">
+      <h3>🏆 실시간 당첨 확인 & 푸시 알림</h3>
+      <p>매주 토요일 21:00 추첨 직후, 자동으로 당첨 결과를 조회하고 맞춘 번호와 등수를 알림으로 전송합니다.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>📊 스마트 히스토리 시각화</h3>
+      <p>회차별 당첨 번호 미니 볼과 일치 번호 테두리 링으로 이번 주 당첨 여부를 한눈에 시원하게 대조합니다.</p>
+    </td>
+    <td width="50%">
+      <h3>🔒 강력한 보안 암호화</h3>
+      <p>동행복권 계정 정보는 Android Keystore(EncryptedSharedPreferences)로 안전하게 격리 보관됩니다.</p>
+    </td>
+  </tr>
+</table>
 
-# 릴리스 APK (서명: 루트 key.properties 필요)
-./gradlew :app:assembleRelease
-```
+## 📱 앱 화면 미리보기
 
-빌드된 APK: `app/build/outputs/apk/release/app-release.apk`
-릴리스 서명은 루트 `key.properties`(gitignore)가 있을 때만 활성화됩니다.
+<p align="center">
+  <img src="docs/screenshots/home.jpg" width="22%" style="border-radius: 12px; margin: 1%;" />
+  <img src="docs/screenshots/numbers.jpg" width="22%" style="border-radius: 12px; margin: 1%;" />
+  <img src="docs/screenshots/history.jpg" width="22%" style="border-radius: 12px; margin: 1%;" />
+  <img src="docs/screenshots/settings.jpg" width="22%" style="border-radius: 12px; margin: 1%;" />
+</p>
+
+## 🚀 빠른 시작 & 설치 방법
+
+Google Play 도박 정책으로 인해 공식 스토어 등록 대신 GitHub Release를 통해 배포됩니다.
+
+1. **[최신 릴리스 다운로드](https://github.com/ree9622/autolotto/releases/latest)** 페이지에서 `autolotto-1.2.0-universal.apk`를 다운로드합니다.
+2. 다운로드 완료 후 파일을 탭하여 설치를 진행합니다.
+   - *'출처를 알 수 없는 앱 설치'* 권한 요청 시 브라우저 또는 파일 관리자에 권한을 허용합니다.
+3. 앱 실행 후 설정 화면에서 **동행복권(dhlottery.co.kr) 계정**을 연동하고 번호를 설정합니다.
+
+> [!TIP]
+> **안정적인 자동 구매를 위한 팁**  
+> 백그라운드 자동 구매가 정시에 원활히 실행될 수 있도록 휴대폰 설정에서 로또루틴의 **'배터리 최적화 제외'**를 권장합니다.
+
+## 🛠️ 기술 스택 & 아키텍처
+
+- **UI Framework**: Android Jetpack Compose · Material 3 Expressive 'Lucky Gloss' 테마
+- **Programming Language**: Kotlin 2.2 (Coroutine & StateFlow)
+- **Background Architecture**: AlarmManager 자가 연쇄 스케줄러 + WorkManager Expedited 작업
+- **Security**: Android Keystore 기반 `EncryptedSharedPreferences`, HTTPS RSA PKCS1 통신
+- **Update Engine**: GitHub Releases API 인앱 버전 감지 및 패키지 무결성 검증
 
 ## 📂 프로젝트 구조
 
 ```
 app/src/main/kotlin/com/umicorp/autolotto/
 ├── MainActivity.kt              # 진입점 (Compose setContent)
-├── AppContainer.kt              # 앱 스코프 컴포지션 루트 (상태·서비스·업데이트)
-├── dhlottery/                   # 동행복권 역공학 세션
-│   ├── AuthService.kt           # RSA 로그인 (도메인별 쿠키)
-│   ├── PurchaseService.kt       # 로또 구매 (execBuy.do)
-│   ├── ResultService.kt         # 당첨번호 조회
-│   ├── HistoryService.kt        # 구매 내역
-│   ├── DhlotterySession.kt      # OkHttp 세션 (수동 리다이렉트)
-│   ├── DomainCookieStore.kt     # 도메인별 쿠키 저장소 (www↔ol 세션 공유)
-│   ├── ApiConstants.kt          # API 경로 상수 (테스트용 베이스 URL 분리)
-│   └── RsaCrypto.kt             # RSA PKCS1
-├── data/
-│   ├── SecureStore.kt           # EncryptedSharedPreferences (+ Flutter 마이그레이션)
-│   ├── Purchase.kt
-│   └── WinningResult.kt
-├── scheduler/                   # AlarmManager 자가연쇄 + WorkManager
-│   ├── AlarmScheduler.kt        # 알람 등록 (자동구매 1001 / 결과확인 1002)
-│   ├── AlarmTimes.kt            # 다음 알람 시각 순수 계산 (단위테스트 대상)
-│   ├── AutoPurchaseWorker.kt    # 백그라운드 자동 구매
-│   ├── CheckResultWorker.kt     # 백그라운드 당첨 확인
-│   ├── SchedulerReceivers.kt    # 부팅·앱 업데이트 시 알람 복원
-│   ├── ExactAlarmPermission.kt  # 정확 알람 권한 확인·설정 이동
-│   └── Notifications.kt         # 알림 (구매/당첨/잔액)
-├── update/
-│   └── AppUpdater.kt            # 인앱 업데이트 (GitHub 릴리스 확인·설치)
-└── ui/                          # Jetpack Compose · Material 3 Expressive
-    ├── App.kt                   # 하단 pill 네비 + 4탭 페이저
-    ├── SplashScreen.kt          # 스플래시 (자동 로그인)
-    ├── screen/                  # Home · Number · History · Settings
-    ├── vm/                      # 화면별 ViewModel (상태 홀더)
-    ├── theme/                   # Lucky Gloss 테마·색·모션
-    └── util/                    # 볼 색상·포맷 등 UI 헬퍼
+├── AppContainer.kt              # 앱 스코프 컴포지션 루트
+├── dhlottery/                   # 동행복권 통신 엔진
+│   ├── AuthService.kt           # RSA 암호화 로그인 & 쿠키 관리
+│   ├── PurchaseService.kt       # 로또 구매 엔진 (execBuy.do)
+│   ├── ResultService.kt         # 당첨 결과 조회
+│   └── HistoryService.kt        # 구매 내역 파싱
+├── scheduler/                   # 정밀 백그라운드 스케줄링
+│   ├── AlarmScheduler.kt        # AlarmManager 정시 트리거
+│   ├── AutoPurchaseWorker.kt    # 백그라운드 자동 구매 처리
+│   └── CheckResultWorker.kt     # 토요일 당첨 결과 수집
+└── ui/                          # Jetpack Compose UI 계층
+    ├── screen/                  # Home · Numbers · History · Settings
+    └── theme/                   # Lucky Gloss 네온 & 글래스 테마
 ```
 
-## 🔐 보안
+## 🔐 보안 및 개인정보 보호
 
-- 계정 정보는 **EncryptedSharedPreferences**(Android Keystore)로 암호화 저장 (Flutter판에서 자동 마이그레이션)
-- Android 12 이상에서도 백업·기기 간 이전에서 앱 데이터를 명시적으로 제외 (기기에 묶인 암호화 키와 저장 정보의 분리 방지)
-- 로그인 비밀번호는 동행복권 서버의 **RSA 공개키로 암호화** 후 전송
-- 인앱 업데이트 APK는 다운로드 크기 상한(50MB)과 설치 전 **패키지명·서명 인증서 검증**을 거침 — 불일치 시 폐기 (fail-closed)
-- 앱 코드에 로그 출력 없음, 릴리즈 빌드는 R8 축소·난독화 적용
-- 모든 API 통신은 HTTPS
-- 세션 쿠키는 응답한 서버에 속한 도메인만 허용하며, 암호화 연결 전용 쿠키는 평문 연결로 전송하지 않음
+- 사용자의 동행복권 비밀번호는 단말 내 **Android Keystore**에 암호화 보관되며 외부 서버로 전송되지 않습니다.
+- 동행복권 로그인 통신 시 비밀번호는 동행복권 공식 공개키(RSA)로 단방향 암호화되어 전달됩니다.
+- 인앱 업데이트는 배포된 APK의 패키지명과 서명 인증서를 실시간 대조하여 위변조를 원천 차단합니다.
 
-## ⚠️ 주의사항
+## ⚠️ 주의사항 및 면책 조항
 
-- 이 앱은 **동행복권(dhlottery.co.kr) 계정**이 필요합니다
-- 로또 구매에는 **예치금 충전**이 선행되어야 합니다
-- 구매 가능 시간: 평일/일요일 06:00\~23:59, 토요일 06:00\~19:59
-- 자동 구매가 정상 동작하려면 **배터리 최적화 제외** 설정을 권장합니다
-- Google Play 도박 정책으로 인해 **스토어 배포 불가** → GitHub APK 직접 배포
-
-## ⚖️ 면책 조항
-
-동행복권의 공식 앱이 아니며, 사용에 따른 모든 책임은 사용자에게 있습니다. 동행복권 이용약관을 확인하고 본인의 판단 하에 사용하시기 바랍니다.
+- 본 앱은 동행복권 공식 앱이 아니며, 개인 편의를 위해 개발된 오픈소스 프로젝트입니다.
+- 로또 구매를 위해서는 동행복권 계정에 **예치금 충전**이 사전 완료되어 있어야 합니다.
+- 복권 구매 가능 시간: 평일/일요일 06:00 ~ 23:59, 토요일 06:00 ~ 19:59 (추첨일 마감 시간 주의).
 
 ## 📄 라이선스
 
-[MIT License](LICENSE) — 자유롭게 사용, 수정, 배포 가능합니다.
-
+이 프로젝트는 [MIT License](LICENSE)에 따라 자유롭게 수정, 배포 및 이용할 수 있습니다.

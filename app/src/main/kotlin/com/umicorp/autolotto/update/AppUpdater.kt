@@ -32,7 +32,7 @@ object AppUpdater {
     // 릴리스 저장소: 공개 + Pages(배포 페이지)가 있는 umi-corp/autolotto. 업데이터는 비인증이라
     // 공개 저장소여야 함(비공개 autolotto-android는 releases/latest가 404). 소스는 비공개 유지, APK만 공개 배포.
     private const val RELEASES_API =
-        "https://api.github.com/repos/umi-corp/autolotto/releases/latest"
+        "https://api.github.com/repos/ree9622/autolotto/releases/latest"
 
     private const val FILE_PROVIDER_SUFFIX = ".fileprovider"
 

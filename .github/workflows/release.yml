@@ -1,0 +1,91 @@
+name: Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.2.0)'
+        required: false
+        default: 'v1.2.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK components
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Setup Keystore
+        run: |
+          keytool -genkeypair -v -keystore release.keystore -alias autolotto -keyalg RSA -keysize 2048 -validity 10000 -storepass autolottopass -keypass autolottopass -dname "CN=AutoLotto, OU=AutoLotto, O=UmiCorp, L=Seoul, ST=Seoul, C=KR"
+          cat <<EOF > key.properties
+          storeFile=../release.keystore
+          storePassword=autolottopass
+          keyAlias=autolotto
+          keyPassword=autolottopass
+          EOF
+
+      - name: Build Release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk autolotto-1.2.0-universal.apk
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: autolotto-1.2.0-universal
+          path: autolotto-1.2.0-universal.apk
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag_name }}" ]; then
+            TAG="${{ inputs.tag_name }}"
+          fi
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
+            TAG="v1.2.0"
+          fi
+          
+          # Delete existing release or tag if present
+          gh release delete "$TAG" -y || true
+          git tag -d "$TAG" 2>/dev/null || true
+          git push origin ":refs/tags/$TAG" 2>/dev/null || true
+
+          gh release create "$TAG" autolotto-1.2.0-universal.apk \
+            --title "$TAG — 로또루틴 (LottoRoutine) 리브랜딩 & UI 고도화" \
+            --notes "## 🎰 로또루틴 (LottoRoutine) $TAG 릴리스
+
+          ### ✨ 새로운 기능 및 개선 사항
+          - **브랜드 리뉴얼**: '로또루틴 (LottoRoutine)'으로 앱 타이틀 및 한/영/일 다국어 브랜딩 고도화
+          - **새로운 3D 앱 아이콘**: 최고급 글래스모피즘 3D 럭키 볼 & 자동화 네온 루프 아이콘 적용
+          - **인앱 업데이트 채널 변경**: GitHub Releases 저장소를 \`ree9622/autolotto\`로 연결하여 다이렉트 업데이트 지원
+          - **브랜드 모션 배너**: 매주 반복되는 행운의 자동화 루틴 비주얼 배너 적용
+          - **안정성 강화**: 이전 보안 패치(세션 쿠키 도메인 격리, 기기 간 이전 데이터 제외) 통합
+
+          ### 📱 설치 파일
+          - \`autolotto-1.2.0-universal.apk\`: 모든 Android 12+ 기기 지원 단일 설치 파일"

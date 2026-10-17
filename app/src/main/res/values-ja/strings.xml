@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ja (원본 app_ja.arb 1:1 포트). -->
 <resources>
+    <string name="app_name">LottoRoutine</string>
     <string name="nav_home">ホーム</string>
     <string name="nav_numbers">番号</string>
     <string name="nav_history">履歴</string>
@@ -10,7 +11,7 @@
     <string name="bottomNavHistory">履歴</string>
     <string name="bottomNavSettings">設定</string>
 
-    <string name="appTitle">AutoLotto</string>
+    <string name="appTitle">LottoRoutine</string>
 
     <string name="autoPurchaseEnabled">自動購入 有効</string>
     <string name="autoPurchaseDisabled">自動購入 無効</string>
