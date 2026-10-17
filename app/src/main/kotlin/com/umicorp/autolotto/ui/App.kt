@@ -400,13 +400,17 @@ private fun RequestNotificationPermission() {
 @Composable
 fun LocalizedApp(language: String, content: @Composable () -> Unit) {
     val base = LocalContext.current
-    val localized = remember(language, base) {
+    val configuration = LocalConfiguration.current
+    val localizedConfiguration = remember(language, configuration) {
+        Configuration(configuration).apply {
+            if (language != "system") setLocale(Locale.forLanguageTag(language))
+        }
+    }
+    val localized = remember(language, base, localizedConfiguration) {
         if (language == "system") {
             base
         } else {
-            val locale = Locale.forLanguageTag(language)
-            val config = Configuration(base.resources.configuration).apply { setLocale(locale) }
-            val cfg = base.createConfigurationContext(config)
+            val cfg = base.createConfigurationContext(localizedConfiguration)
             // base(=Activity)를 baseContext로 유지하는 ContextWrapper. 이래야 findOwner(ActivityResultRegistry/
             // ViewModelStore)와 startActivity가 ContextWrapper 체인을 따라 Activity를 찾는다(크래시 방지).
             // resources/assets만 로케일 적용본으로 덮어쓴다.
@@ -418,7 +422,7 @@ fun LocalizedApp(language: String, content: @Composable () -> Unit) {
     }
     CompositionLocalProvider(
         LocalContext provides localized,
-        LocalConfiguration provides localized.resources.configuration,
+        LocalConfiguration provides localizedConfiguration,
         content = content,
     )
 }

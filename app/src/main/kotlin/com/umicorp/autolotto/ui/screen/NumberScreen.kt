@@ -85,7 +85,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -150,7 +150,7 @@ fun NumberScreen(modifier: Modifier = Modifier) {
     }
 
     val configuredCount = games.count { it != null }
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val schedule = formatPurchaseSchedule(day, hour, minute)
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -163,7 +163,7 @@ fun NumberScreen(modifier: Modifier = Modifier) {
     // 스낵바는 scope로 분리 — dismiss가 상태를 바꿔 이 이펙트가 재시작(=취소)돼도 표시가 살아남는다.
     LaunchedEffect(instantState) {
         if (instantState is InstantState.NeedsSetup) {
-            scope.launch { snackbar.showSnackbar(context.getString(R.string.instantNeedsSetup)) }
+            scope.launch { snackbar.showSnackbar(resources.getString(R.string.instantNeedsSetup)) }
             vm.dismissInstant()
         }
     }
@@ -349,8 +349,8 @@ fun NumberScreen(modifier: Modifier = Modifier) {
                     saved = true
                     scope.launch {
                         snackbar.showSnackbar(
-                            if (count == 0) context.getString(R.string.snackbarSaveEmpty)
-                            else context.getString(R.string.snackbarSaveSuccess, count, schedule),
+                            if (count == 0) resources.getString(R.string.snackbarSaveEmpty)
+                            else resources.getString(R.string.snackbarSaveSuccess, count, schedule),
                         )
                     }
                 },
@@ -394,7 +394,7 @@ fun NumberScreen(modifier: Modifier = Modifier) {
                 onTap = {
                     // 저장 상태 요구는 첫 구매만 — 추가 구매(자동 N게임)는 저장 슬롯을 쓰지 않는다.
                     if (!saved && lastRound < vm.currentRound) {
-                        scope.launch { snackbar.showSnackbar(context.getString(R.string.instantNeedsSetup)) }
+                        scope.launch { snackbar.showSnackbar(resources.getString(R.string.instantNeedsSetup)) }
                     } else {
                         vm.onInstantTap()
                     }

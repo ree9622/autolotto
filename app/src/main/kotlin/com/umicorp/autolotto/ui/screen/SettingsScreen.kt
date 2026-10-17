@@ -90,6 +90,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -133,6 +134,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToNumbers: () -> Unit) {
     val vm: SettingsViewModel = appViewModel()
+    val resources = LocalResources.current
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -163,9 +165,9 @@ fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToNumbers: () -> Uni
     // 로그인 결과 → 스낵바(원본 _login의 try/catch 스낵바). consume 후 Idle 복귀.
     LaunchedEffect(loginState) {
         val msg = when (loginState) {
-            LoginState.Success -> context.getString(R.string.snackbarLoginSuccess)
-            LoginState.InvalidCredentials -> "❌ " + context.getString(R.string.errorInvalidCredentials)
-            LoginState.Error -> "❌ " + context.getString(R.string.snackbarLoginFailed)
+            LoginState.Success -> resources.getString(R.string.snackbarLoginSuccess)
+            LoginState.InvalidCredentials -> "❌ " + resources.getString(R.string.errorInvalidCredentials)
+            LoginState.Error -> "❌ " + resources.getString(R.string.snackbarLoginFailed)
             else -> null
         }
         if (msg != null) {
@@ -175,7 +177,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToNumbers: () -> Uni
         }
     }
 
-    fun toast(resId: Int) = scope.launch { snackbar.showSnackbar(context.getString(resId)) }
+    fun toast(resId: Int) = scope.launch { snackbar.showSnackbar(resources.getString(resId)) }
 
     Scaffold(
         modifier = modifier.creamPageBackground(),

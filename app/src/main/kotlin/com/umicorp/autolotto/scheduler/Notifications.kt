@@ -1,13 +1,17 @@
 package com.umicorp.autolotto.scheduler
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.umicorp.autolotto.MainActivity
 import com.umicorp.autolotto.R
 import com.umicorp.autolotto.data.SecureStore
@@ -41,9 +45,13 @@ object Notifications {
      * 알림 표시. 본문이 여러 줄이므로 BigTextStyle로 전체 노출(원본 flutter_local_notifications가
      * 멀티라인 body를 그대로 보여준 동작과 동등).
      *
-     * POST_NOTIFICATIONS(API33+) 미허용 시 시스템이 조용히 무시한다 — 권한 요청 UI는 다음 슬라이스(설정/홈).
+     * POST_NOTIFICATIONS(API33+) 미허용 시 표시를 건너뛴다. 권한 요청은 화면에서만 수행한다.
      */
     fun show(context: Context, title: String, body: String, id: Int, tab: String? = null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
         ensureChannel(context)
         // 탭 시 앱 실행(+지정 탭 이동). contentIntent가 없으면 알림을 눌러도 아무 일도 없다(사용자 피드백).
         val contentIntent = PendingIntent.getActivity(
@@ -67,7 +75,11 @@ object Notifications {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
-        NotificationManagerCompat.from(context).notify(id, notification)
+        try {
+            NotificationManagerCompat.from(context).notify(id, notification)
+        } catch (_: SecurityException) {
+            // The user can revoke permission after the check, including while the app is in the background.
+        }
     }
 
     private fun ensureChannel(context: Context) {

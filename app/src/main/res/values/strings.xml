@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ko 템플릿 (원본 app_ko.arb 1:1 포트). {placeholder} → Android %1$s/%1$d 포지셔널. -->
 <resources>
-    <string name="app_name">AutoLotto</string>
+    <string name="app_name" translatable="false">AutoLotto</string>
 
     <!-- 하단 네비 (기존 nav_* 유지 + arb bottomNav* 확장) -->
     <string name="nav_home">홈</string>
