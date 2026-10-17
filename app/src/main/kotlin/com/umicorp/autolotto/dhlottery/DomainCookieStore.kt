@@ -1,71 +1,64 @@
 package com.umicorp.autolotto.dhlottery
 
+import okhttp3.Cookie
+import okhttp3.HttpUrl
+
 /**
- * 동행복권 세션용 커스텀 쿠키 저장소 — Flutter AuthService._domainCookies / _parseCookies /
- * _buildCookieHeader 로직의 1:1 포트.
- *
- * 표준 쿠키 처리(OkHttp 기본 CookieJar 포함)는 JSESSIONID를 www.↔ol. 서브도메인 사이로
- * 전달하지 않으므로, Set-Cookie를 직접 파싱하고 도메인 매칭 규칙도 직접 구현한다.
- *
- * 저장: domain(키) → (name → value). Set-Cookie에 `Domain=`이 있으면 그 값(점 포함 원문),
- *       없으면 요청 host를 domain 키로 사용.
- * 전송: '.'으로 시작하는 domain은 host가 그 suffix이거나 ".suffix"로 끝나면 포함,
- *       그리고 host와 정확히 일치하는 domain의 쿠키 포함.
+ * 세션 쿠키 저장소. 부모 Domain 쿠키의 www ↔ ol 전파와 호스트 전용 쿠키의 격리를 유지한다.
+ * 응답 호스트에 유효한 쿠키만 저장하며 Secure 쿠키는 HTTPS 요청에만 전달한다.
+ * 기존 동작 보존을 위해 경로·만료에 따른 전송 정책은 여기서 추가하지 않는다.
  */
 class DomainCookieStore {
-    private val domainCookies = LinkedHashMap<String, LinkedHashMap<String, String>>()
+    private val domainCookies = LinkedHashMap<String, LinkedHashMap<String, Cookie>>()
 
     @Synchronized
     fun clear() {
         domainCookies.clear()
     }
 
-    /** 요청 host에 보낼 Cookie 헤더 ("k=v; k=v"). 없으면 빈 문자열. */
+    /** 호스트만 아는 기존 호출자는 HTTPS로 취급한다. 실제 요청은 URL 경로를 사용한다. */
+    fun cookieHeader(host: String): String = cookieHeader(
+        HttpUrl.Builder().scheme("https").host(host).build(),
+    )
+
+    /** 요청 URL에 보낼 Cookie 헤더. Secure 속성을 전송 시점에 확인한다. */
     @Synchronized
-    fun cookieHeader(host: String): String {
-        val merged = LinkedHashMap<String, String>()
+    fun cookieHeader(url: HttpUrl): String {
+        val merged = LinkedHashMap<String, Cookie>()
         for ((domain, cookies) in domainCookies) {
             if (domain.startsWith(".")) {
                 val suffix = domain.substring(1)
-                if (host == suffix || host.endsWith(".$suffix")) merged.putAll(cookies)
+                if (url.host == suffix || url.host.endsWith(".$suffix")) {
+                    merged.putAll(cookies.filterValues { !it.secure || url.isHttps })
+                }
             }
         }
-        domainCookies[host]?.let { merged.putAll(it) }
-        return merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
+        domainCookies[url.host]?.let { cookies ->
+            merged.putAll(cookies.filterValues { !it.secure || url.isHttps })
+        }
+        return merged.values.joinToString("; ") { "${it.name}=${it.value}" }
     }
 
-    /** 응답의 Set-Cookie 헤더 목록을 파싱해 저장 (Dart _parseCookies 그대로). */
+    /** Cookie.parse가 응답 호스트와 Domain의 관계 및 쿠키 구문을 검증한다. */
     @Synchronized
     fun store(setCookieHeaders: List<String>, requestHost: String) {
-        for (cookie in setCookieHeaders) {
-            val mainPart = cookie.substringBefore(';')
-            val eqIdx = mainPart.indexOf('=')
-            if (eqIdx < 1) continue
-            val name = mainPart.substring(0, eqIdx).trim()
-            val value = mainPart.substring(eqIdx + 1).trim()
-
-            var domain = requestHost
-            val lower = cookie.lowercase()
-            val domainIdx = lower.indexOf("domain=")
-            if (domainIdx != -1) {
-                val afterDomain = cookie.substring(domainIdx + 7)
-                val endIdx = afterDomain.indexOf(';')
-                domain = (if (endIdx != -1) afterDomain.substring(0, endIdx) else afterDomain).trim()
-            }
-            domainCookies.getOrPut(domain) { LinkedHashMap() }[name] = value
+        val origin = HttpUrl.Builder().scheme("https").host(requestHost).build()
+        for (header in setCookieHeaders) {
+            val cookie = Cookie.parse(origin, header) ?: continue
+            val domain = if (cookie.hostOnly) cookie.domain else ".${cookie.domain}"
+            domainCookies.getOrPut(domain) { LinkedHashMap() }[cookie.name] = cookie
         }
     }
 
     @Synchronized
     fun hasCookie(name: String): Boolean = domainCookies.values.any { it.containsKey(name) }
 
-    /** 로그인 실패 복원용 스냅샷 — 중첩 맵까지 깊은 복사(이후 store/clear에 오염되지 않게). */
+    /** Cookie는 불변 객체이므로 중첩 맵 복사로 속성까지 보존한다. */
     @Synchronized
-    fun snapshot(): Map<String, Map<String, String>> = domainCookies.mapValues { LinkedHashMap(it.value) }
+    fun snapshot(): Map<String, Map<String, Cookie>> = domainCookies.mapValues { LinkedHashMap(it.value) }
 
-    /** 스냅샷으로 전체 교체 복원 — 실패한 로그인 시도 중 유입된 쿠키를 남기지 않는다. */
     @Synchronized
-    fun restore(snapshot: Map<String, Map<String, String>>) {
+    fun restore(snapshot: Map<String, Map<String, Cookie>>) {
         domainCookies.clear()
         for ((domain, cookies) in snapshot) domainCookies[domain] = LinkedHashMap(cookies)
     }

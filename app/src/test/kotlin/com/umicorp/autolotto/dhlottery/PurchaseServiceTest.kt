@@ -213,7 +213,7 @@ class PurchaseServiceTest {
         override fun dispatch(request: RecordedRequest): MockResponse =
             when (request.path?.substringBefore('?')) {
                 ApiConstants.RSA_MODULUS -> rsaOk()
-                ApiConstants.LOGIN -> ok("").addHeader("Set-Cookie", "JSESSIONID=s; Domain=.dhlottery.co.kr; Path=/")
+                ApiConstants.LOGIN -> ok("").addHeader("Set-Cookie", "JSESSIONID=s; Path=/")
                 ApiConstants.GAME645 -> ok("").addHeader("Set-Cookie", "JSESSIONID=ol; Path=/")
                 ApiConstants.BALANCE -> ok("{\"data\":{}}") // verifyLogin 200
                 else -> ok("")

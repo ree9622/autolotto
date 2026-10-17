@@ -41,7 +41,7 @@ class DhlotterySession(
             for ((k, v) in ApiConstants.DEFAULT_HEADERS) {
                 if (original.header(k) == null) builder.header(k, v)
             }
-            val cookie = cookies.cookieHeader(host)
+            val cookie = cookies.cookieHeader(original.url)
             if (cookie.isNotEmpty()) builder.header("Cookie", cookie)
 
             val response = chain.proceed(builder.build())

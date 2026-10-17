@@ -62,7 +62,7 @@ class AuthServiceSequenceTest {
                 ApiConstants.RSA_MODULUS -> rsaOk()
                 ApiConstants.LOGIN -> {
                     capturedLoginBody = request.body.readUtf8()
-                    ok("").addHeader("Set-Cookie", "JSESSIONID=test-session-123; Domain=.dhlottery.co.kr; Path=/")
+                    ok("").addHeader("Set-Cookie", "JSESSIONID=test-session-123; Path=/")
                 }
                 ApiConstants.MAIN -> ok("")
                 ApiConstants.GAME645 -> ok("").addHeader("Set-Cookie", "JSESSIONID=ol-session-456; Path=/")
@@ -92,7 +92,7 @@ class AuthServiceSequenceTest {
             override fun dispatch(request: RecordedRequest): MockResponse =
                 when (request.path?.substringBefore('?')) {
                     ApiConstants.RSA_MODULUS -> rsaOk()
-                    ApiConstants.LOGIN -> ok("").addHeader("Set-Cookie", "JSESSIONID=x; Domain=.dhlottery.co.kr; Path=/")
+                    ApiConstants.LOGIN -> ok("").addHeader("Set-Cookie", "JSESSIONID=x; Path=/")
                     ApiConstants.GAME645 -> ok("").addHeader("Set-Cookie", "JSESSIONID=ol; Path=/")
                     ApiConstants.BALANCE -> MockResponse().setResponseCode(401) // 검증 실패
                     else -> ok("")
@@ -151,7 +151,7 @@ class AuthServiceSequenceTest {
             override fun dispatch(request: RecordedRequest): MockResponse =
                 when (request.path?.substringBefore('?')) {
                     ApiConstants.RSA_MODULUS -> rsaOk()
-                    ApiConstants.LOGIN -> ok("").addHeader("Set-Cookie", "JSESSIONID=x; Domain=.dhlottery.co.kr; Path=/")
+                    ApiConstants.LOGIN -> ok("").addHeader("Set-Cookie", "JSESSIONID=x; Path=/")
                     ApiConstants.GAME645 -> ok("").addHeader("Set-Cookie", "JSESSIONID=ol; Path=/")
                     ApiConstants.BALANCE -> MockResponse().setResponseCode(503) // 추첨 직후 피크 서버 장애
                     else -> ok("")

@@ -1,11 +1,39 @@
 package com.umicorp.autolotto.dhlottery
 
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 커스텀 쿠키 저장소의 서브도메인 전파 규칙 검증 — 이 앱 머니패스의 핵심 메커니즘. */
 class DomainCookieStoreTest {
+
+    @Test
+    fun `response cannot inject cookies for an unrelated domain`() {
+        val store = DomainCookieStore()
+        store.store(listOf("INJECTED=x; Domain=.dhlottery.co.kr"), "attacker.example")
+        assertFalse(store.hasCookie("INJECTED"))
+        assertTrue(store.cookieHeader("https://www.dhlottery.co.kr/".toHttpUrl()).isEmpty())
+    }
+
+    @Test
+    fun `secure cookies are only sent over HTTPS including after snapshot restore`() {
+        val store = DomainCookieStore()
+        store.store(
+            listOf("SECRET=x; Domain=.dhlottery.co.kr; Secure", "PLAIN=y; Path=/"),
+            "www.dhlottery.co.kr",
+        )
+        val snapshot = store.snapshot()
+        store.clear()
+        store.restore(snapshot)
+
+        val http = store.cookieHeader("http://www.dhlottery.co.kr/".toHttpUrl())
+        assertFalse(http.contains("SECRET=x"))
+        assertTrue(http.contains("PLAIN=y"))
+        assertTrue(store.cookieHeader("https://www.dhlottery.co.kr/".toHttpUrl()).contains("SECRET=x"))
+        assertTrue(store.cookieHeader("https://ol.dhlottery.co.kr/".toHttpUrl()).contains("SECRET=x"))
+        assertFalse(store.cookieHeader("http://ol.dhlottery.co.kr/".toHttpUrl()).contains("SECRET=x"))
+    }
 
     @Test
     fun `Domain dot cookie propagates across www and ol subdomains`() {
