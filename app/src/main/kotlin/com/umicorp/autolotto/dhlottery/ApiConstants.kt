@@ -18,6 +18,9 @@ object ApiConstants {
     const val PURCHASE_HISTORY = "/mypage/selectMyLotteryledger.do"
     const val TICKET_DETAIL = "/mypage/lotto645TicketDetail.do"
     const val WINNING_NUMBER = "/lt645/selectPstLt645Info.do"
+    const val CHARGE_PAGE = "/mypage/mndpChrg"
+    const val KBANK_INIT = "/mypage/kbankInit.do"
+    const val KBANK_PROCESS = "/mypage/kbankProcess.do"
 
     // ol 경로
     const val GAME645 = "/olotto/game/game645.do"

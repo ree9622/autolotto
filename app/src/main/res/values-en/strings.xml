@@ -158,6 +158,7 @@
     <string name="buttonGrant">Grant</string>
 
     <!-- accessibility (contentDescription) -->
+    <string name="cdBack">Back</string>
     <string name="cdRefresh">Refresh</string>
     <string name="cdRemoveGame">Remove game</string>
     <string name="cdShowPassword">Show password</string>
@@ -212,4 +213,29 @@
     <string name="historyNoPendingRecords">No pending records in the loaded dates.</string>
     <string name="historyLoadingRecords">Loading history…</string>
     <string name="historyGameLabel">Game %1$d</string>
+
+    <!-- Deposit Charge -->
+    <string name="depositTitle">Deposit</string>
+    <string name="depositCurrentBalance">Current Balance</string>
+    <string name="depositSelectAmount">Select Amount</string>
+    <string name="depositCustomAmount">Custom Amount (KRW)</string>
+    <string name="depositAmountHint">Enter 5,000 KRW or more</string>
+    <string name="depositBtnIssue">Issue Virtual Account</string>
+    <string name="depositIssuing">Issuing virtual account…</string>
+    <string name="depositAccountTitle">K Bank Virtual Account</string>
+    <string name="depositBankName">K Bank</string>
+    <string name="depositCopyAccount">Copy Account Number</string>
+    <string name="depositAccountCopied">Account number copied to clipboard.</string>
+    <string name="depositDueDate">Due: by %1$s</string>
+    <string name="depositBuyerName">Depositor: %1$s</string>
+    <string name="depositNotice1">You must transfer the exact requested amount for deposit completion.</string>
+    <string name="depositNotice2">You can transfer from any Korean bank (Toss, KakaoBank, etc.) fee-free.</string>
+    <string name="depositNotice3">Balance is automatically updated within 1–2 minutes after transfer.</string>
+    <string name="depositOpenToss">Transfer with Toss</string>
+    <string name="depositOpenKakaoBank">Open KakaoBank</string>
+    <string name="depositRefreshBalance">Refresh Balance</string>
+    <string name="depositIssueSuccess">Virtual account issued successfully</string>
+    <string name="depositIssueFailed">Failed to issue account: %1$s</string>
+    <string name="depositLoginRequired">DHLottery login is required.</string>
+    <string name="depositInvalidAmount">Please enter a valid amount (minimum 5,000 KRW).</string>
 </resources>

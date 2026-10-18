@@ -79,10 +79,13 @@ import com.umicorp.autolotto.appContainer
 import com.umicorp.autolotto.scheduler.Notifications
 import com.umicorp.autolotto.update.AppUpdater
 import com.umicorp.autolotto.update.UpdateInfo
+import com.umicorp.autolotto.ui.screen.DepositScreen
 import com.umicorp.autolotto.ui.screen.HistoryScreen
 import com.umicorp.autolotto.ui.screen.HomeScreen
 import com.umicorp.autolotto.ui.screen.NumberScreen
 import com.umicorp.autolotto.ui.screen.SettingsScreen
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -141,6 +144,7 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
     )
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
+    var showDepositScreen by rememberSaveable { mutableStateOf(false) }
 
     // 알림 탭 진입: 지정 탭으로 즉시 이동 후 소비 — cold(스플래시 뒤)/warm(onNewIntent) 공용.
     LaunchedEffect(pendingTab) {
@@ -148,6 +152,10 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
             val page = when (tab) {
                 Notifications.TAB_HISTORY -> 2
                 Notifications.TAB_SETTINGS -> 3
+                "deposit" -> {
+                    showDepositScreen = true
+                    null
+                }
                 else -> null
             }
             if (page != null) {
@@ -185,14 +193,34 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
                 0 -> HomeScreen(
                     modifier = screenModifier,
                     onNavigateToNumbers = { scope.launch { pagerState.animateScrollToPage(1) } },
+                    onNavigateToDeposit = { showDepositScreen = true },
                 )
                 1 -> NumberScreen(modifier = screenModifier)
                 2 -> HistoryScreen(modifier = screenModifier)
                 else -> SettingsScreen(
                     modifier = screenModifier,
                     onNavigateToNumbers = { scope.launch { pagerState.animateScrollToPage(1) } },
+                    onNavigateToDeposit = { showDepositScreen = true },
                 )
             }
+        }
+    }
+
+    if (showDepositScreen) {
+        Dialog(
+            onDismissRequest = { showDepositScreen = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+            ),
+        ) {
+            DepositScreen(
+                onBack = { showDepositScreen = false },
+                onNavigateToSettings = {
+                    showDepositScreen = false
+                    scope.launch { pagerState.animateScrollToPage(3) }
+                },
+            )
         }
     }
 

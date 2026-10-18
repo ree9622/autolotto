@@ -165,6 +165,7 @@
     <string name="buttonGrant">허용</string>
 
     <!-- 접근성(contentDescription) -->
+    <string name="cdBack">뒤로 가기</string>
     <string name="cdRefresh">새로고침</string>
     <string name="cdRemoveGame">게임 삭제</string>
     <string name="cdShowPassword">비밀번호 표시</string>
@@ -219,4 +220,29 @@
     <string name="historyNoPendingRecords">불러온 기간에 추첨 대기 내역이 없습니다.</string>
     <string name="historyLoadingRecords">내역을 불러오고 있습니다.</string>
     <string name="historyGameLabel">게임 %1$d</string>
+
+    <!-- 예치금 충전 -->
+    <string name="depositTitle">예치금 충전</string>
+    <string name="depositCurrentBalance">현재 보유 예치금</string>
+    <string name="depositSelectAmount">충전 금액 선택</string>
+    <string name="depositCustomAmount">직접 입력 (원)</string>
+    <string name="depositAmountHint">5,000원 이상 입력</string>
+    <string name="depositBtnIssue">충전용 가상계좌 발급하기</string>
+    <string name="depositIssuing">가상계좌 발급 중...</string>
+    <string name="depositAccountTitle">입금 전용 케이뱅크 가상계좌</string>
+    <string name="depositBankName">케이뱅크</string>
+    <string name="depositCopyAccount">계좌번호 복사</string>
+    <string name="depositAccountCopied">케이뱅크 계좌번호가 복사되었습니다.</string>
+    <string name="depositDueDate">입금 기한: %1$s까지</string>
+    <string name="depositBuyerName">입금자명: %1$s</string>
+    <string name="depositNotice1">반드시 신청하신 금액과 정확히 일치하는 금액을 입금하셔야 정상 충전됩니다.</string>
+    <string name="depositNotice2">타 은행(토스, 카카오뱅크, 국민, 신한 등) 어디서나 수수료 없이 송금할 수 있습니다.</string>
+    <string name="depositNotice3">입금 완료 후 1~2분 내에 동행복권 예치금에 자동 반영됩니다.</string>
+    <string name="depositOpenToss">토스로 송금하기</string>
+    <string name="depositOpenKakaoBank">카카오뱅크 열기</string>
+    <string name="depositRefreshBalance">입금 후 잔액 새로고침</string>
+    <string name="depositIssueSuccess">가상계좌가 발급되었습니다</string>
+    <string name="depositIssueFailed">가상계좌 발급 실패: %1$s</string>
+    <string name="depositLoginRequired">동행복권 로그인이 필요합니다.</string>
+    <string name="depositInvalidAmount">입금 가능한 금액을 선택해주세요 (최소 5,000원).</string>
 </resources>

@@ -158,6 +158,7 @@
     <string name="buttonGrant">許可</string>
 
     <!-- アクセシビリティ(contentDescription) -->
+    <string name="cdBack">戻る</string>
     <string name="cdRefresh">更新</string>
     <string name="cdRemoveGame">ゲーム削除</string>
     <string name="cdShowPassword">パスワードを表示</string>
@@ -212,4 +213,29 @@
     <string name="historyNoPendingRecords">読み込み済み期間に抽せん待ちの履歴がありません。</string>
     <string name="historyLoadingRecords">履歴を読み込み中…</string>
     <string name="historyGameLabel">ゲーム %1$d</string>
+
+    <!-- 預受金チャージ -->
+    <string name="depositTitle">預受金チャージ</string>
+    <string name="depositCurrentBalance">現在の預受金</string>
+    <string name="depositSelectAmount">チャージ金額を選択</string>
+    <string name="depositCustomAmount">直接入力 (ウォン)</string>
+    <string name="depositAmountHint">5,000ウォン以上を入力</string>
+    <string name="depositBtnIssue">チャージ用仮想口座を発行</string>
+    <string name="depositIssuing">仮想口座を発行中…</string>
+    <string name="depositAccountTitle">入金専用 Kバンク仮想口座</string>
+    <string name="depositBankName">Kバンク</string>
+    <string name="depositCopyAccount">口座番号をコピー</string>
+    <string name="depositAccountCopied">口座番号をクリップボードにコピーしました。</string>
+    <string name="depositDueDate">入金期限: %1$sまで</string>
+    <string name="depositBuyerName">振込人名: %1$s</string>
+    <string name="depositNotice1">必ず申請された金額と一致する金額をお振込みください。</string>
+    <string name="depositNotice2">韓国国内の各銀行アプリから手数料無料でお振込みいただけます。</string>
+    <string name="depositNotice3">入金完了後、1〜2分以内に自動反映されます。</string>
+    <string name="depositOpenToss">Tossで送金</string>
+    <string name="depositOpenKakaoBank">KakaoBankを開く</string>
+    <string name="depositRefreshBalance">残高を更新</string>
+    <string name="depositIssueSuccess">仮想口座が発行されました</string>
+    <string name="depositIssueFailed">仮想口座の発行失敗: %1$s</string>
+    <string name="depositLoginRequired">同行宝くじへのログインが必要です。</string>
+    <string name="depositInvalidAmount">有効な金額を選択してください (最低5,000ウォン)。</string>
 </resources>

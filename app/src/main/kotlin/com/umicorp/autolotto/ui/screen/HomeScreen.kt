@@ -86,7 +86,11 @@ import java.time.LocalDateTime
  * 스태거 팝인) · 예치금 잔액(틸 컬러 드렌치) · 자동구매 상태(그린 톤얼) · 네이비 CTA.
  */
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier, onNavigateToNumbers: () -> Unit) {
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onNavigateToNumbers: () -> Unit,
+    onNavigateToDeposit: () -> Unit = {},
+) {
     val vm: HomeViewModel = appViewModel()
     val isLoggedIn by vm.isLoggedIn.collectAsState()
     val autoLoginFailed by vm.autoLoginFailed.collectAsState()
@@ -152,7 +156,7 @@ fun HomeScreen(modifier: Modifier = Modifier, onNavigateToNumbers: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
                 WinningNumbers(winning, loadingNumbers)
                 Spacer(Modifier.height(24.dp))
-                BalanceCard(balance, alertEnabled, threshold)
+                BalanceCard(balance, alertEnabled, threshold, onNavigateToDeposit)
                 Spacer(Modifier.height(16.dp))
                 AutoStatusCard(autoEnabled, day, hour, minute)
                 Spacer(Modifier.height(20.dp))
@@ -319,41 +323,55 @@ private fun WinningNumbers(winning: com.umicorp.autolotto.data.WinningResult?, l
 }
 
 @Composable
-private fun BalanceCard(balance: Int, alertEnabled: Boolean, threshold: Int) {
-    val context = LocalContext.current
+private fun BalanceCard(
+    balance: Int,
+    alertEnabled: Boolean,
+    threshold: Int,
+    onNavigateToDeposit: () -> Unit,
+) {
     val isLow = alertEnabled && balance <= threshold && balance > 0
-    ColorDrenchedCard(accent = if (isLow) LgAmber else LgTeal) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GlossyIconTile(
-                icon = Icons.Rounded.AccountBalanceWallet,
-                tint = LgGold,
-                size = 44.dp,
-            )
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Text(
-                    stringResource(R.string.balanceTitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White.copy(alpha = 0.85f),
+    ColorDrenchedCard(
+        accent = if (isLow) LgAmber else LgTeal,
+        onClick = onNavigateToDeposit,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GlossyIconTile(
+                    icon = Icons.Rounded.AccountBalanceWallet,
+                    tint = LgGold,
+                    size = 44.dp,
                 )
-                Text(
-                    "₩${formatNumber(balance)}",
-                    style = MaterialTheme.typography.headlineMedium,
-                    // ponytail: Black(900)은 ₩ 폴백 글리프가 합성볼드로 겹쳐 그려짐(취소선처럼 보임) — Bold로 회피
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.balanceTitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                    Text(
+                        "₩${formatNumber(balance)}",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                }
             }
+            Icon(
+                Icons.Rounded.AddCard,
+                contentDescription = stringResource(R.string.chargeNow),
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(24.dp),
+            )
         }
         if (isLow) {
             Spacer(Modifier.height(12.dp))
             OutlinedButton(
-                onClick = {
-                    context.launchActivitySafely(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.dhlottery.co.kr/mypage/mndpChrg")),
-                    )
-                },
+                onClick = onNavigateToDeposit,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.7f)),

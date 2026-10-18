@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.umicorp.autolotto.data.SecureStore
 import com.umicorp.autolotto.dhlottery.AuthService
+import com.umicorp.autolotto.dhlottery.DepositService
 import com.umicorp.autolotto.dhlottery.DhlotteryException
 import com.umicorp.autolotto.dhlottery.DhlotterySession
 import com.umicorp.autolotto.dhlottery.HistoryService
@@ -19,6 +20,7 @@ import com.umicorp.autolotto.scheduler.PurchaseLock
 import com.umicorp.autolotto.update.AppUpdater
 import com.umicorp.autolotto.update.UpdateInfo
 import java.io.File
+import com.umicorp.autolotto.ui.vm.DepositViewModel
 import com.umicorp.autolotto.ui.vm.HistoryViewModel
 import com.umicorp.autolotto.ui.vm.HomeViewModel
 import com.umicorp.autolotto.ui.vm.NumberViewModel
@@ -61,6 +63,7 @@ class AppContainer(context: Context) {
     val scheduler = AlarmScheduler(appContext)
     val resultService = ResultService()            // 로그인 불필요 — 자체 세션
     val historyService = HistoryService(session)   // 로그인된 공유 세션 차용
+    val depositService = DepositService(session)   // 예치금 가상계좌 충전 서비스
 
     // === 공유 반응형 상태 (원본 전역 프로바이더와 1:1) ===
     private val _isLoggedIn = MutableStateFlow(false)
@@ -438,6 +441,7 @@ class AppContainer(context: Context) {
         initializer { NumberViewModel(this@AppContainer) }
         initializer { HistoryViewModel(this@AppContainer) }
         initializer { SettingsViewModel(this@AppContainer) }
+        initializer { DepositViewModel(this@AppContainer) }
     }
 }
 

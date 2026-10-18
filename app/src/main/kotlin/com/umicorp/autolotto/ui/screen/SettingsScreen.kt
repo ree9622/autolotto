@@ -132,7 +132,11 @@ import kotlinx.coroutines.launch
  * 신뢰성을 위해 추가(DESIGN §11에서 Slice 5 UI로 보류했던 런타임 권한 유도).
  */
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToNumbers: () -> Unit) {
+fun SettingsScreen(
+    modifier: Modifier = Modifier,
+    onNavigateToNumbers: () -> Unit,
+    onNavigateToDeposit: () -> Unit = {},
+) {
     val vm: SettingsViewModel = appViewModel()
     val resources = LocalResources.current
     val context = LocalContext.current
@@ -249,7 +253,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToNumbers: () -> Uni
                                     Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.cdRefresh), tint = MaterialTheme.colorScheme.primary)
                                 }
                                 FilledIconButton(
-                                    onClick = { openUrl(context, URL_CHARGE) },
+                                    onClick = onNavigateToDeposit,
                                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = LgTealInk, contentColor = Color.White),
                                 ) {
                                     Icon(Icons.Rounded.AddCard, contentDescription = stringResource(R.string.chargeNow))
