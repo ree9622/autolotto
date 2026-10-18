@@ -187,4 +187,29 @@
     <string name="instantErrorFallback">Purchase failed. Please try again.</string>
     <string name="instantStoreError">Couldn\'t read saved numbers. Please try again shortly.</string>
     <string name="instantNeedsSetup">Set up and save your games before buying.</string>
+
+    <!-- Read-only purchase history -->
+    <string name="historySummaryTitle">History summary</string>
+    <string name="historyFilterAll">All</string>
+    <string name="historyFilterWinning">Winners</string>
+    <string name="historyFilterPending">Pending</string>
+    <string name="historyVisibleRounds">Rounds: %1$d</string>
+    <string name="historyDateRange">%1$s – %2$s</string>
+    <string name="historyNoLoadedRange">No history loaded yet</string>
+    <string name="historyTotalSpent">Total spent</string>
+    <string name="historyTotalPrize">Total prizes</string>
+    <string name="historyNetAmount">Prizes − spending</string>
+    <string name="historyRoundCounts">Winning rounds: %1$d · Pending rounds: %2$d</string>
+    <string name="historySummaryScope">All loaded records · Prizes are before tax and may differ from payments received.</string>
+    <string name="historyLoadingAll">Loading all · %1$d/4 periods complete</string>
+    <string name="historyArchiveComplete">Past year loaded</string>
+    <string name="historyArchivePartial">Partial totals · %1$d/4 periods loaded</string>
+    <string name="historyLoadAll">Load all from the past year</string>
+    <string name="historyReadFailed">Some history could not be loaded. Totals cover only the shown dates.</string>
+    <string name="historyRetry">Retry</string>
+    <string name="historyWon">₩%1$s</string>
+    <string name="historyNoWinningRecords">No winning records in the loaded dates.</string>
+    <string name="historyNoPendingRecords">No pending records in the loaded dates.</string>
+    <string name="historyLoadingRecords">Loading history…</string>
+    <string name="historyGameLabel">Game %1$d</string>
 </resources>

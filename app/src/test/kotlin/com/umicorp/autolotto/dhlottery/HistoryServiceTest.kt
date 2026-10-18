@@ -1,6 +1,9 @@
 package com.umicorp.autolotto.dhlottery
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import org.junit.Assert.assertThrows
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -38,7 +41,9 @@ class HistoryServiceTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse =
                 when (request.path?.substringBefore('?')) {
-                    ApiConstants.PURCHASE_HISTORY -> ok(ledger)
+                    ApiConstants.PURCHASE_HISTORY ->
+                        if (request.requestUrl?.queryParameter("pageNum") == "1") ok(ledger)
+                        else ok("""{"data":{"list":[]}}""")
                     ApiConstants.TICKET_DETAIL -> ok(detail)
                     else -> ok("")
                 }
@@ -141,14 +146,22 @@ class HistoryServiceTest {
     }
 
     @Test
-    fun `fetchRecentPurchases skips item when detail success is false`() = runBlocking {
-        val purchases = historyFor(ledgerOneLotto, """{"data":{"success":false}}""").fetchRecentPurchases()
-        assertTrue(purchases.isEmpty())
+    fun `fetchRecentPurchases propagates unsuccessful detail`() {
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { historyFor(ledgerOneLotto, """{"data":{"success":false}}""").fetchRecentPurchases() }
+        }
     }
 
     @Test
-    fun `fetchRecentPurchases returns empty when data list missing`() = runBlocking {
-        val purchases = historyFor("""{"data":{}}""", "").fetchRecentPurchases()
+    fun `fetchRecentPurchases fails when data list missing`() {
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { historyFor("""{"data":{}}""", "").fetchRecentPurchases() }
+        }
+    }
+
+    @Test
+    fun `fetchRecentPurchases returns empty for an explicit empty list`() = runBlocking {
+        val purchases = historyFor("""{"data":{"list":[]}}""", "").fetchRecentPurchases()
         assertTrue(purchases.isEmpty())
     }
 
@@ -213,4 +226,122 @@ class HistoryServiceTest {
         val p = historyFor(ledger, detail).fetchRecentPurchases()[0]
         assertEquals(LocalDate.of(2026, 6, 27).atStartOfDay(), p.date) // 컴팩트 날짜가 now로 폴백 안 됨
     }
+    private val pendingDetail = """{"data":{"success":true,"ticket":{"drawed":false,
+        "game_dtl":[{"num":[1,2,3,4,5,6],"type":0,"rank":0,"amt":0}]}}}"""
+
+    private fun ledgerPage(start: Int, size: Int): String =
+        (start until start + size).joinToString(prefix = "{\"data\":{\"list\":[", postfix = "]}}") { id ->
+            """{"ltGdsNm":"로또6/45","ltEpsdView":"1124회","ntslOrdrNo":"O$id","gmInfo":"B$id",
+                "eltOrdrDt":"2026-06-25","epsdRflDt":"2026-06-27"}"""
+        }
+
+    private fun paginatedHistory(pageBody: (Int) -> String, detailBody: (String) -> String = { pendingDetail }): HistoryService {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.requestUrl?.encodedPath) {
+                ApiConstants.PURCHASE_HISTORY -> ok(pageBody(request.requestUrl!!.queryParameter("pageNum")!!.toInt()))
+                ApiConstants.TICKET_DETAIL -> ok(detailBody(request.requestUrl!!.queryParameter("ntslOrdrNo")!!))
+                else -> ok("")
+            }
+        }
+        val base = server.url("/").toString().trimEnd('/')
+        return HistoryService(DhlotterySession(baseUrl = base, olottoUrl = base))
+    }
+
+    @Test
+    fun `fetchPurchases reads every page including trailing short page`() = runBlocking {
+        val pages = mutableListOf<Int>()
+        val history = paginatedHistory(pageBody = { page ->
+            pages.add(page)
+            when (page) {
+                1 -> ledgerPage(1, 100)
+                2 -> ledgerPage(101, 2)
+                else -> ledgerPage(103, 0)
+            }
+        })
+        val purchases = history.fetchPurchases(LocalDate.now().minusDays(30), LocalDate.now())
+        assertEquals(102, purchases.size)
+        assertEquals(listOf(1, 2, 3), pages)
+    }
+
+    @Test
+    fun `fetchPurchases continues through small pages until explicit empty page`() = runBlocking {
+        val pages = mutableListOf<Int>()
+        val history = paginatedHistory(pageBody = { page ->
+            pages.add(page)
+            when (page) {
+                1 -> ledgerPage(1, 10)
+                2 -> ledgerPage(11, 3)
+                else -> ledgerPage(14, 0)
+            }
+        })
+        val purchases = history.fetchPurchases(LocalDate.now().minusDays(30), LocalDate.now())
+        assertEquals(13, purchases.size)
+        assertEquals(listOf(1, 2, 3), pages)
+    }
+
+    @Test
+    fun `fetchPurchases count stops before another page or detail request`() = runBlocking {
+        var pages = 0
+        var details = 0
+        val history = paginatedHistory(pageBody = { pages++; ledgerPage(1, 100) }, detailBody = { details++; pendingDetail })
+        assertEquals(2, history.fetchRecentPurchases(2).size)
+        assertEquals(1, pages)
+        assertEquals(2, details)
+    }
+
+    @Test
+    fun `fetchPurchases fails when server repeats a full page`() {
+        val history = paginatedHistory(pageBody = { ledgerPage(1, 100) })
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { history.fetchPurchases(LocalDate.now().minusDays(30), LocalDate.now()) }
+        }
+    }
+
+    @Test
+    fun `fetchPurchases propagates later detail failure instead of partial result`() {
+        val history = paginatedHistory(
+            pageBody = { ledgerPage(1, 2) },
+            detailBody = { id -> if (id == "O2") "<html>login</html>" else pendingDetail },
+        )
+        assertThrows(org.json.JSONException::class.java) {
+            runBlocking { history.fetchRecentPurchases() }
+        }
+    }
+
+    @Test
+    fun `fetchPurchases does not treat a missing later page as complete`() {
+        val history = paginatedHistory(pageBody = { page ->
+            if (page == 1) ledgerPage(1, 100) else """{"data":{}}"""
+        })
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { history.fetchPurchases(LocalDate.now().minusDays(30), LocalDate.now()) }
+        }
+    }
+
+    @Test
+    fun `fetchPurchases rejects a partially malformed ticket`() {
+        val detail = """{"data":{"success":true,"ticket":{"drawed":false,"game_dtl":[
+            {"num":[1,2,3,4,5,6]}, {"num":[1,2,3]}
+        ]}}}"""
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { historyFor(ledgerOneLotto, detail).fetchRecentPurchases() }
+        }
+    }
+
+    @Test
+    fun `fetchPurchases zero count makes no requests`() = runBlocking {
+        assertTrue(historyFor(ledgerOneLotto, pendingDetail).fetchRecentPurchases(0).isEmpty())
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `fetchPurchases respects an already cancelled coroutine`() {
+        val history = historyFor(ledgerOneLotto, pendingDetail)
+        val job = Job().apply { cancel() }
+        assertThrows(CancellationException::class.java) {
+            runBlocking(job) { history.fetchRecentPurchases() }
+        }
+        assertEquals(0, server.requestCount)
+    }
+
 }

@@ -1,0 +1,8 @@
+
+com.umicorp.autolotto.HistoryScreenTest:......
+
+Time: 19.74
+
+OK (6 tests)
+
+

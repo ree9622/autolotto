@@ -187,4 +187,29 @@
     <string name="instantErrorFallback">購入に失敗しました。もう一度お試しください。</string>
     <string name="instantStoreError">保存した番号を読み込めませんでした。しばらくしてから再試行してください。</string>
     <string name="instantNeedsSetup">先に購入するゲームを設定して保存してください。</string>
+
+    <!-- Read-only purchase history -->
+    <string name="historySummaryTitle">購入履歴の集計</string>
+    <string name="historyFilterAll">すべて</string>
+    <string name="historyFilterWinning">当せんのみ</string>
+    <string name="historyFilterPending">抽せん待ち</string>
+    <string name="historyVisibleRounds">%1$d回分</string>
+    <string name="historyDateRange">%1$s ～ %2$s</string>
+    <string name="historyNoLoadedRange">履歴はまだ読み込まれていません</string>
+    <string name="historyTotalSpent">購入総額</string>
+    <string name="historyTotalPrize">当せん総額</string>
+    <string name="historyNetAmount">当せん額 − 購入額</string>
+    <string name="historyRoundCounts">当せん %1$d回・抽せん待ち %2$d回</string>
+    <string name="historySummaryScope">読み込み済みの全履歴が対象・当せん額は税引き前で実際の受取額と異なる場合があります。</string>
+    <string name="historyLoadingAll">全履歴を読み込み中・%1$d/4期間完了</string>
+    <string name="historyArchiveComplete">過去1年の読み込み完了</string>
+    <string name="historyArchivePartial">一部期間の集計・%1$d/4期間読み込み済み</string>
+    <string name="historyLoadAll">過去1年の全履歴を読み込む</string>
+    <string name="historyReadFailed">履歴の一部を読み込めませんでした。表示期間のみ集計しています。</string>
+    <string name="historyRetry">再読み込み</string>
+    <string name="historyWon">₩%1$s</string>
+    <string name="historyNoWinningRecords">読み込み済み期間に当せん履歴がありません。</string>
+    <string name="historyNoPendingRecords">読み込み済み期間に抽せん待ちの履歴がありません。</string>
+    <string name="historyLoadingRecords">履歴を読み込み中…</string>
+    <string name="historyGameLabel">ゲーム %1$d</string>
 </resources>

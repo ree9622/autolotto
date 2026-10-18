@@ -194,4 +194,29 @@
     <string name="instantErrorFallback">구매에 실패했습니다. 다시 시도해주세요.</string>
     <string name="instantStoreError">저장된 번호를 읽지 못했습니다. 잠시 후 다시 시도해주세요.</string>
     <string name="instantNeedsSetup">구매할 게임을 먼저 설정하고 저장해주세요.</string>
+
+    <!-- Read-only purchase history -->
+    <string name="historySummaryTitle">구매내역 통계</string>
+    <string name="historyFilterAll">전체</string>
+    <string name="historyFilterWinning">당첨만</string>
+    <string name="historyFilterPending">추첨 대기</string>
+    <string name="historyVisibleRounds">%1$d개 회차</string>
+    <string name="historyDateRange">%1$s ~ %2$s</string>
+    <string name="historyNoLoadedRange">아직 불러온 내역이 없습니다</string>
+    <string name="historyTotalSpent">총 구매액</string>
+    <string name="historyTotalPrize">총 당첨금</string>
+    <string name="historyNetAmount">당첨금 − 구매액</string>
+    <string name="historyRoundCounts">당첨 %1$d회 · 추첨 대기 %2$d회</string>
+    <string name="historySummaryScope">불러온 전체 내역 기준 · 당첨금은 세전이며 실제 수령액과 다를 수 있습니다.</string>
+    <string name="historyLoadingAll">전체 내역 불러오는 중 · %1$d/4 기간 완료</string>
+    <string name="historyArchiveComplete">최근 1년 조회 완료</string>
+    <string name="historyArchivePartial">일부 기간만 집계 · %1$d/4 기간 완료</string>
+    <string name="historyLoadAll">최근 1년 전체 불러오기</string>
+    <string name="historyReadFailed">내역을 모두 읽지 못했습니다. 표시된 기간만 집계했습니다.</string>
+    <string name="historyRetry">다시 불러오기</string>
+    <string name="historyWon">%1$s원</string>
+    <string name="historyNoWinningRecords">불러온 기간에 당첨 내역이 없습니다.</string>
+    <string name="historyNoPendingRecords">불러온 기간에 추첨 대기 내역이 없습니다.</string>
+    <string name="historyLoadingRecords">내역을 불러오고 있습니다.</string>
+    <string name="historyGameLabel">게임 %1$d</string>
 </resources>

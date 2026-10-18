@@ -2,7 +2,6 @@
 
 package com.umicorp.autolotto.ui.screen
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,10 +19,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,6 +37,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -42,17 +47,25 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.umicorp.autolotto.R
 import com.umicorp.autolotto.data.Purchase
+import com.umicorp.autolotto.data.isWinning
+import com.umicorp.autolotto.data.summarizeHistory
 import com.umicorp.autolotto.ui.appViewModel
 import com.umicorp.autolotto.ui.theme.LgGold
 import com.umicorp.autolotto.ui.theme.LgTeal
@@ -61,6 +74,8 @@ import com.umicorp.autolotto.ui.util.formatNumber
 import com.umicorp.autolotto.ui.util.localizedRank
 import com.umicorp.autolotto.ui.vm.HistoryViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
  * 구매/당첨 기록 (원본 history_screen.dart 1:1) — Lucky Gloss 리디자인.
@@ -78,6 +93,46 @@ fun HistoryScreen(modifier: Modifier = Modifier) {
     val canLoadMore by vm.canLoadMore.collectAsState()
     val error by vm.error.collectAsState()
     val isLoggedIn by vm.isLoggedIn.collectAsState()
+    val loadingAll by vm.loadingAll.collectAsState()
+    val windowsLoaded by vm.windowsLoaded.collectAsState()
+    val loadedFrom by vm.loadedFrom.collectAsState()
+    val loadedTo by vm.loadedTo.collectAsState()
+
+    HistoryContent(
+        purchases, loading, loadingMore, loadingAll, canLoadMore, error, isLoggedIn,
+        windowsLoaded, loadedFrom, loadedTo, vm::loadHistory, vm::loadMore, vm::loadAll, modifier,
+    )
+}
+
+/** Read-only content is independent of account/session and can be exercised with synthetic records. */
+@Composable
+internal fun HistoryContent(
+    purchases: List<Purchase>,
+    loading: Boolean,
+    loadingMore: Boolean,
+    loadingAll: Boolean,
+    canLoadMore: Boolean,
+    error: String?,
+    isLoggedIn: Boolean,
+    windowsLoaded: Int,
+    loadedFrom: LocalDate?,
+    loadedTo: LocalDate?,
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit,
+    onLoadAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var filter by rememberSaveable { mutableStateOf("all") }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val visible = remember(purchases, filter) {
+        purchases.filter { when (filter) {
+            "winning" -> it.isWinning
+            "pending" -> !it.checked
+            else -> true
+        } }
+    }
+    val busy = loading || loadingMore || loadingAll
 
     Scaffold(
         modifier = modifier.creamPageBackground(),
@@ -88,7 +143,7 @@ fun HistoryScreen(modifier: Modifier = Modifier) {
                 title = { Text(stringResource(R.string.historyTitle), fontWeight = FontWeight.ExtraBold) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
                 actions = {
-                    IconButton(onClick = { vm.loadHistory() }, enabled = !loading) {
+                    IconButton(onClick = onRefresh, enabled = isLoggedIn && !busy) {
                         Icon(
                             Icons.Rounded.Refresh,
                             contentDescription = stringResource(R.string.cdRefresh),
@@ -99,41 +154,49 @@ fun HistoryScreen(modifier: Modifier = Modifier) {
             )
         },
     ) { inner ->
-        // 로딩→빈화면→목록 전환을 부드럽게(표준 Crossfade — 1.4.0엔 Expressive 컴포넌트 미수록).
-        val phase = when {
-            loading && purchases.isEmpty() -> 0
-            purchases.isEmpty() -> 1
-            else -> 2
-        }
-        Box(Modifier.fillMaxSize().padding(inner)) {
-            Crossfade(targetState = phase, label = "historyState") { p ->
-                when (p) {
-                    0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+        BoxWithConstraints(Modifier.fillMaxSize().padding(inner)) {
+            if (!isLoggedIn) {
+                Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.historyLoginToLoad))
+                }
+                return@BoxWithConstraints
+            }
+            val wide = maxWidth >= 720.dp && maxHeight >= 480.dp
+            val overview: @Composable () -> Unit = {
+                HistoryOverview(purchases, loadingAll, busy, canLoadMore, error, isLoggedIn,
+                    windowsLoaded, loadedFrom, loadedTo, onLoadAll, onRefresh)
+            }
+            val controls: @Composable () -> Unit = {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("all" to R.string.historyFilterAll, "winning" to R.string.historyFilterWinning,
+                        "pending" to R.string.historyFilterPending).forEach { (value, label) ->
+                        FilterChip(selected = filter == value, onClick = {
+                            filter = value
+                            scope.launch { listState.scrollToItem(0) }
+                        },
+                            label = { Text(stringResource(label)) },
+                            modifier = Modifier.testTag("history-filter-$value"))
                     }
-
-                    1 -> EmptyState(
-                        isLoggedIn = isLoggedIn,
-                        error = error,
-                        // 최근 3개월이 비어도 이전 창에 내역이 있을 수 있음 → 빈 화면에서도 더 보기
-                        canLoadMore = isLoggedIn && canLoadMore,
-                        loadingMore = loadingMore,
-                        onLoadMore = vm::loadMore,
-                    )
-
-                    else -> PullToRefreshBox(
-                        isRefreshing = loading,
-                        onRefresh = { vm.loadHistory() },
-                    ) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            itemsIndexed(purchases) { i, item -> HistoryCard(item, index = i) }
-                            if (canLoadMore) {
-                                item { LoadMoreButton(loading = loadingMore, onClick = vm::loadMore) }
-                            }
+                }
+            }
+            PullToRefreshBox(isRefreshing = loading, onRefresh = { if (!busy) onRefresh() }) {
+                if (wide) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("history-wide"),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        Column(Modifier.width(260.dp).verticalScroll(rememberScrollState())
+                            .padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            overview()
+                            controls()
+                        }
+                        HistoryList(visible, filter, isLoggedIn, busy, canLoadMore, onLoadMore,
+                            listState, Modifier.weight(1f), null)
+                    }
+                } else {
+                    Box(Modifier.fillMaxSize().testTag("history-compact")) {
+                        HistoryList(visible, filter, isLoggedIn, busy, canLoadMore, onLoadMore,
+                            listState, Modifier.fillMaxSize()) {
+                            overview()
+                            controls()
                         }
                     }
                 }
@@ -143,38 +206,91 @@ fun HistoryScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun EmptyState(
-    isLoggedIn: Boolean,
-    error: String?,
-    canLoadMore: Boolean = false,
-    loadingMore: Boolean = false,
-    onLoadMore: () -> Unit = {},
+private fun HistoryOverview(
+    purchases: List<Purchase>, loadingAll: Boolean, busy: Boolean, canLoadMore: Boolean,
+    error: String?, isLoggedIn: Boolean, windowsLoaded: Int,
+    loadedFrom: LocalDate?, loadedTo: LocalDate?, onLoadAll: () -> Unit, onRefresh: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        GlossyIconTile(Icons.Rounded.History, tint = LgTeal, size = 64.dp)
-        Spacer(Modifier.height(16.dp))
-        Text(
-            if (isLoggedIn) stringResource(R.string.historyNoRecords)
-            else stringResource(R.string.historyLoginToLoad),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        if (error != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(R.string.historyLoadError, error),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
+    val summary = remember(purchases) { summarizeHistory(purchases) }
+    SectionCard(contentPadding = PaddingValues(16.dp)) {
+        Text(stringResource(R.string.historySummaryTitle), style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(8.dp))
+        Text(if (loadedFrom != null && loadedTo != null)
+            stringResource(R.string.historyDateRange, loadedFrom.toString(), loadedTo.toString())
+            else stringResource(R.string.historyNoLoadedRange), style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(12.dp))
+        HistoryAmount(R.string.historyTotalSpent, summary.totalPurchaseAmount)
+        HistoryAmount(R.string.historyTotalPrize, summary.totalPrizeAmount)
+        HistoryAmount(R.string.historyNetAmount, summary.netAmount)
+        Text(stringResource(R.string.historyRoundCounts, summary.winningRoundCount, summary.pendingRoundCount),
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.historySummaryScope), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (busy) {
+            Spacer(Modifier.height(12.dp))
+            LinearProgressIndicator(Modifier.fillMaxWidth())
         }
-        if (canLoadMore) {
-            Spacer(Modifier.height(8.dp))
-            LoadMoreButton(loading = loadingMore, onClick = onLoadMore)
+        Text(stringResource(if (loadingAll) R.string.historyLoadingAll
+            else if (windowsLoaded >= 4) R.string.historyArchiveComplete
+            else R.string.historyArchivePartial, windowsLoaded),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodySmall)
+        if (isLoggedIn && canLoadMore) {
+            TextButton(onClick = onLoadAll, enabled = !busy,
+                modifier = Modifier.testTag("history-load-all")) {
+                Text(stringResource(R.string.historyLoadAll))
+            }
+        }
+        if (error != null) {
+            Text(stringResource(R.string.historyReadFailed), color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            TextButton(onClick = if (canLoadMore) onLoadAll else onRefresh, enabled = !busy) {
+                Text(stringResource(R.string.historyRetry))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryAmount(label: Int, amount: Long) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(stringResource(label), style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.historyWon, formatNumber(amount)),
+            style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+private fun HistoryList(
+    visible: List<Purchase>, filter: String, isLoggedIn: Boolean, busy: Boolean,
+    canLoadMore: Boolean, onLoadMore: () -> Unit, state: LazyListState, modifier: Modifier,
+    header: (@Composable () -> Unit)?,
+) {
+    LazyColumn(modifier = modifier.testTag("history-list"), state = state,
+        contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item(key = "overview") {
+            Column {
+                header?.invoke()
+                Text(stringResource(R.string.historyVisibleRounds, visible.size),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (visible.isEmpty()) item(key = "empty") {
+            Text(stringResource(when {
+                !isLoggedIn -> R.string.historyLoginToLoad
+                filter == "winning" -> R.string.historyNoWinningRecords
+                filter == "pending" -> R.string.historyNoPendingRecords
+                busy -> R.string.historyLoadingRecords
+                else -> R.string.historyNoRecords
+            }), modifier = Modifier.padding(vertical = 28.dp))
+        }
+        itemsIndexed(visible, key = { _, item -> item.round }) { i, item -> HistoryCard(item, i) }
+        if (isLoggedIn && canLoadMore) item(key = "more") {
+            LoadMoreButton(loading = busy, onClick = onLoadMore)
         }
     }
 }
@@ -202,7 +318,7 @@ private fun LoadMoreButton(loading: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun HistoryCard(item: Purchase, index: Int) {
-    val winner = item.rank != null && item.rank != "nowin"
+    val winner = item.isWinning
     val dateStr = "%04d-%02d-%02d".format(item.date.year, item.date.monthValue, item.date.dayOfMonth)
 
     // 시그니처 모션: 스태거 등장 (fade + rise). ponytail: 스크롤로 재진입 시 재생됨 — 짧고 은은해 허용.
@@ -243,14 +359,14 @@ private fun HistoryCard(item: Purchase, index: Int) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
                     Text(
                         stringResource(R.string.roundLabel, item.round),
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         dateStr,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -291,7 +407,7 @@ private fun HistoryCard(item: Purchase, index: Int) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item.numbers.forEachIndexed { i, nums ->
                 GameRow(
-                    letter = ('A' + i).toString(),
+                    letter = stringResource(R.string.historyGameLabel, i + 1),
                     nums = nums,
                     winningNumbers = item.winningNumbers,
                     bonusNumber = item.bonusNumber,
@@ -322,9 +438,8 @@ private fun HistoryCard(item: Purchase, index: Int) {
 }
 
 /**
- * 게임 1줄: 라벨 + 글로시 볼(당첨 강조/흐림/보너스 림) + 상태 필(우측 고정).
- * 좁은 기기에선 FlowRow 줄바꿈으로 필이 아래줄 왼쪽에 떨어지던 문제 → 볼 크기를 가용 폭에 맞춰
- * 축소해 항상 한 줄 유지 (갤럭시 유효 폭 384dp 사용자 리포트).
+ * 라벨과 상태는 윗줄, 번호는 아랫줄에 배치한다.
+ * 접힌 화면이나 큰 글씨에서도 상태 표시가 번호의 가용 폭을 빼앗지 않는다.
  */
 @Composable
 private fun GameRow(
@@ -337,20 +452,26 @@ private fun GameRow(
 ) {
     val hasResult = checked && winningNumbers != null
     val gameWinner = gameRank != null && gameRank != "nowin" && gameRank != "pending"
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(
-            letter,
-            modifier = Modifier.width(24.dp),
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.ExtraBold,
-            style = MaterialTheme.typography.labelLarge,
-        )
-        // 라벨·필이 자연 폭을 가져간 뒤 남는 폭을 볼들이 나눠 갖는다 (weight=나머지 전부).
-        BoxWithConstraints(Modifier.weight(1f)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(letter, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelLarge)
+            if (gameRank != null) StatusPill(
+                text = if (gameWinner) stringResource(R.string.rankWithEmoji, localizedRank(gameRank))
+                    else localizedRank(gameRank),
+                tone = when {
+                    gameWinner -> PillTone.Win
+                    gameRank == "pending" -> PillTone.Pending
+                    else -> PillTone.Lose
+                },
+            )
+        }
+        // 번호 줄 전체 폭을 여섯 개의 공이 나눠 갖는다.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
             // 하한 없음: 큰 글씨·긴 필로 폭이 더 좁아져도 필을 침범하는 대신 볼이 계속 줄어든다
             val gaps = (nums.size - 1).coerceAtLeast(0)
             val ball = ((maxWidth - 6.dp * gaps) / nums.size.coerceAtLeast(1))
@@ -368,17 +489,6 @@ private fun GameRow(
                     )
                 }
             }
-        }
-        if (gameRank != null) {
-            StatusPill(
-                text = if (gameWinner) stringResource(R.string.rankWithEmoji, localizedRank(gameRank))
-                else localizedRank(gameRank),
-                tone = when {
-                    gameWinner -> PillTone.Win
-                    gameRank == "pending" -> PillTone.Pending
-                    else -> PillTone.Lose
-                },
-            )
         }
     }
 }
