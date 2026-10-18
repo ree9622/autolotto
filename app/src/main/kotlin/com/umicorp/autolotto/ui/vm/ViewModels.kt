@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.umicorp.autolotto.AppContainer
 import com.umicorp.autolotto.data.Purchase
 import com.umicorp.autolotto.data.WinningResult
-import com.umicorp.autolotto.data.mergePurchasesByRound
 import com.umicorp.autolotto.dhlottery.PurchaseResult
 import com.umicorp.autolotto.dhlottery.PurchaseService
 import com.umicorp.autolotto.TapSlotsOutcome
@@ -257,108 +256,132 @@ class NumberViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
-/**
- * 기록: 로그인 상태면 dhlottery에서 구매내역 라이브 조회(로컬 DB 없음).
- *
- * 조회는 3개월 창 단위(동행복권 1회 조회 한도) — 첫 로드는 최근 3개월, "더 보기"가 이전 3개월
- * 창을 이어 붙여 최대 4창(서버 보관 한도 1년)까지 내려간다. 새로고침은 첫 창부터 리셋.
- */
+/** 구매 기록 조회. 진행 중 요청은 계정 변경 시 취소하고 이전 계정의 늦은 응답을 버린다. */
 class HistoryViewModel(private val container: AppContainer) : ViewModel() {
-    val isLoggedIn = container.isLoggedIn  // 빈 화면 문구 분기용(원본 isLoggedInProvider watch)
+    val isLoggedIn = container.isLoggedIn
     private val _purchases = MutableStateFlow<List<Purchase>>(emptyList())
     val purchases: StateFlow<List<Purchase>> = _purchases.asStateFlow()
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
     private val _loadingMore = MutableStateFlow(false)
     val loadingMore: StateFlow<Boolean> = _loadingMore.asStateFlow()
+    private val _loadingAll = MutableStateFlow(false)
+    val loadingAll: StateFlow<Boolean> = _loadingAll.asStateFlow()
     private val _canLoadMore = MutableStateFlow(false)
     val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
+    private val _windowsLoaded = MutableStateFlow(0)
+    val windowsLoaded: StateFlow<Int> = _windowsLoaded.asStateFlow()
+    private val _loadedFrom = MutableStateFlow<LocalDate?>(null)
+    val loadedFrom: StateFlow<LocalDate?> = _loadedFrom.asStateFlow()
+    private val _loadedTo = MutableStateFlow<LocalDate?>(null)
+    val loadedTo: StateFlow<LocalDate?> = _loadedTo.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    /** 다음 "더 보기" 창의 끝 날짜 다음 날(= 마지막으로 로드한 창의 시작일). */
-    private var oldestStart: LocalDate = LocalDate.now()
-    private var windowsLoaded = 0
-
-    /** 현재 목록의 주인 계정 — 계정 전환 시 이전 계정 내역 잔존 방지(crosscheck R2). */
     private var shownUser: String? = null
+    private var loader: HistoryRangeLoader? = null
+    private var requestJob: Job? = null
 
     init {
-        // 로그인 전이 관찰: 재로그인 시 자동 복구(빈 목록), 로그아웃·계정 전환 시 목록 초기화.
         viewModelScope.launch {
             combine(container.isLoggedIn, container.loggedInUserId) { logged, user -> logged to user }
                 .collect { (logged, user) ->
-                    when {
-                        !logged -> {
-                            shownUser = null
-                            if (_purchases.value.isNotEmpty()) resetList()
+                    if (!logged) {
+                        resetList()
+                    } else if (loader == null || shownUser != user) {
+                        resetList()
+                        shownUser = user
+                        loader = HistoryRangeLoader(LocalDate.now(ZoneId.of("Asia/Seoul"))) { from, to ->
+                            container.historyService.fetchPurchases(from, to)
                         }
-                        user != shownUser -> {
-                            shownUser = user
-                            resetList()
-                            loadHistory()
-                        }
-                        _purchases.value.isEmpty() && !_loading.value -> loadHistory()
+                        loadHistory()
                     }
                 }
         }
     }
 
     private fun resetList() {
+        requestJob?.cancel()
+        requestJob = null
+        loader = null
+        shownUser = null
         _purchases.value = emptyList()
         _canLoadMore.value = false
-        oldestStart = LocalDate.now()
-        windowsLoaded = 0
+        _windowsLoaded.value = 0
+        _loadedFrom.value = null
+        _loadedTo.value = null
+        _error.value = null
+        _loading.value = false
+        _loadingMore.value = false
+        _loadingAll.value = false
     }
 
-    /** 첫 3개월 창 로드(새로고침 겸용 — 더 보기로 쌓인 이전 창은 버리고 리셋). */
-    fun loadHistory() {
-        if (!container.isLoggedIn.value) return
-        viewModelScope.launch {
-            _loading.value = true
-            _error.value = null
-            try {
-                val end = LocalDate.now()
-                val start = end.minusMonths(WINDOW_MONTHS)
-                // 회차당 주문이 여러 건일 수 있음(예약 + 즉시/추가 구매) — 카드 1장으로 병합.
-                _purchases.value = mergePurchasesByRound(container.historyService.fetchPurchases(start, end))
-                    .sortedByDescending { it.round }
-                oldestStart = start
-                windowsLoaded = 1
-                _canLoadMore.value = true
-            } catch (e: Exception) {
-                _error.value = e.message  // 5b가 historyLoadError 템플릿으로 로컬라이즈
-                _canLoadMore.value = false
-            } finally {
-                _loading.value = false
-            }
-        }
+    private fun isCurrent(source: HistoryRangeLoader, user: String?): Boolean =
+        loader === source && container.isLoggedIn.value && container.loggedInUserId.value == user
+
+    private fun publish(source: HistoryRangeLoader, user: String?) {
+        if (!isCurrent(source, user)) return
+        _purchases.value = source.purchases
+        _windowsLoaded.value = source.windowsLoaded
+        _loadedFrom.value = source.loadedFrom
+        _loadedTo.value = source.loadedTo
+        _canLoadMore.value = source.canLoadMore
     }
 
-    /** 이전 3개월 창 추가 로드. 실패는 조용히 무시 — 버튼이 남아 재시도 가능. */
-    fun loadMore() {
-        if (_loading.value || _loadingMore.value || !_canLoadMore.value) return
-        viewModelScope.launch {
-            _loadingMore.value = true
+    /** 새로고침도 이미 확인한 기간 전체를 유지한다. 실패한 기간은 기존 내용을 보존한다. */
+    fun loadHistory() = runQuery(Query.REFRESH)
+    fun loadMore() = runQuery(Query.MORE)
+    fun loadAll() = runQuery(Query.ALL)
+
+    private enum class Query { REFRESH, MORE, ALL }
+
+    private fun runQuery(query: Query) {
+        val source = loader ?: return
+        val user = shownUser
+        if (!isCurrent(source, user) || requestJob?.isActive == true) return
+        if (query != Query.REFRESH && !source.canLoadMore) return
+        _loading.value = query == Query.REFRESH
+        _loadingMore.value = query == Query.MORE
+        _loadingAll.value = query == Query.ALL
+        _error.value = null
+        val refreshDate = LocalDate.now(ZoneId.of("Asia/Seoul"))
+        requestJob = viewModelScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
+            var activeSource = source
             try {
-                val end = oldestStart.minusDays(1)
-                val start = end.minusMonths(WINDOW_MONTHS)
-                val more = container.historyService.fetchPurchases(start, end)
-                // 창 경계에 걸린 회차도 병합되도록 이어 붙인 전체를 다시 병합.
-                _purchases.value = mergePurchasesByRound(_purchases.value + more).sortedByDescending { it.round }
-                oldestStart = start
-                windowsLoaded++
-                if (windowsLoaded >= MAX_WINDOWS) _canLoadMore.value = false
+                when (query) {
+                    Query.REFRESH -> if (source.today == refreshDate) {
+                        source.refresh { publish(source, user) }
+                    } else {
+                        val replacement = source.refreshedAt(refreshDate)
+                        if (isCurrent(source, user)) {
+                            loader = replacement
+                            activeSource = replacement
+                            publish(replacement, user)
+                        }
+                    }
+                    Query.MORE -> {
+                        source.loadNext()
+                        publish(source, user)
+                    }
+                    Query.ALL -> while (source.canLoadMore && isCurrent(source, user)) {
+                        source.loadNext()
+                        publish(source, user)
+                    }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
+                if (isCurrent(source, user)) {
+                    _error.value = "구매 내역을 불러오지 못했습니다. 다시 시도해 주세요."
+                }
             } finally {
-                _loadingMore.value = false
+                if (loader === activeSource) {
+                    _loading.value = false
+                    _loadingMore.value = false
+                    _loadingAll.value = false
+                }
             }
-        }
-    }
-
-    private companion object {
-        const val WINDOW_MONTHS = 3L  // 동행복권 1회 조회 한도
-        const val MAX_WINDOWS = 4     // 4×3개월 = 서버 보관 한도 1년
+        }.also { it.start() }
     }
 }
 

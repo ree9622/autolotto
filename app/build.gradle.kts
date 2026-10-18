@@ -23,6 +23,7 @@ android {
         targetSdk = 36
         versionCode = 2015  // Flutter판 최종 versionCode(2001)보다 높아야 기기에서 업그레이드 설치됨
         versionName = "1.2.0"
+        testInstrumentationRunner = "com.umicorp.autolotto.HistoryTestRunner"
     }
 
     if (keystorePropertiesFile.exists()) {
@@ -104,4 +105,9 @@ dependencies {
     testImplementation("org.json:json:20240303")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
