@@ -47,21 +47,11 @@ jobs:
           if [ -n "$KEYSTORE_B64" ]; then
             echo "Restoring persistent release keystore from secrets..."
             echo "$KEYSTORE_B64" | base64 -d > release.keystore
-            cat <<EOF > key.properties
-            storeFile=../release.keystore
-            storePassword=${STORE_PASS:-autolottopass}
-            keyAlias=${KEY_ALIAS:-autolotto}
-            keyPassword=${KEY_PASS:-autolottopass}
-            EOF
+            printf "storeFile=../release.keystore\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n" "${STORE_PASS:-autolottopass}" "${KEY_ALIAS:-autolotto}" "${KEY_PASS:-autolottopass}" > key.properties
           else
             echo "Fallback: Generating ephemeral keystore..."
             keytool -genkeypair -v -keystore release.keystore -alias autolotto -keyalg RSA -keysize 2048 -validity 10000 -storepass autolottopass -keypass autolottopass -dname "CN=AutoLotto, OU=AutoLotto, O=UmiCorp, L=Seoul, ST=Seoul, C=KR"
-            cat <<EOF > key.properties
-            storeFile=../release.keystore
-            storePassword=autolottopass
-            keyAlias=autolotto
-            keyPassword=autolottopass
-            EOF
+            printf "storeFile=../release.keystore\nstorePassword=autolottopass\nkeyAlias=autolotto\nkeyPassword=autolottopass\n" > key.properties
           fi
 
       - name: Determine Tag and Version
