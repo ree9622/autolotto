@@ -7,8 +7,7 @@ import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.ForcedSize
 import androidx.compose.ui.test.FontScale
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.then
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -115,6 +114,17 @@ class HistoryScreenTest {
             androidx.compose.ui.test.hasText("제 1234회"))
         compose.onNodeWithText("제 1234회").assertIsDisplayed()
         capture("history-large-text")
+    }
+
+    @Test fun foldSwitchKeepsTheScrolledRound() {
+        show(values = (1234 downTo 1205).map { record(it, true, "nowin", 0) })
+        compose.onNodeWithTag("history-list").performScrollToNode(
+            androidx.compose.ui.test.hasText("제 1205회"))
+        compose.onNodeWithText("제 1205회").assertIsDisplayed()
+        compose.runOnIdle { size.value = DpSize(840.dp, 900.dp) }
+        compose.onNodeWithText("제 1205회").assertIsDisplayed()
+        compose.runOnIdle { size.value = DpSize(380.dp, 820.dp) }
+        compose.onNodeWithText("제 1205회").assertIsDisplayed()
     }
 
     private fun capture(name: String) {

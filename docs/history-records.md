@@ -24,3 +24,13 @@
 ```
 
 별도로 만든 시험용 가상 기기에서만 화면 검사를 실행합니다. 연결된 개인 기기를 대상으로 한 일괄 검사를 사용하지 않습니다.
+
+검증 결과(2026-10-19): 조회·통계 시험 117개와 화면 시험 6개 통과, 정적 오류 0개(경고 62개·참고 1개). 시험용 실행 환경은 일반 응용 프로그램 객체를 사용해 저장된 계정과 예약 작업을 시작하지 않습니다. 화면 시험 코드의 가져오기 누락이 빌드 전에 발견되도록 원격 검사에도 화면 시험 번역 단계를 추가했습니다.
+
+- [접힌 화면](verification/history-20261019/history-folded.png)
+- [펼친 화면](verification/history-20261019/history-unfolded.png)
+- [큰 글씨](verification/history-20261019/history-large-text.png)
+- [비로그인](verification/history-20261019/history-signed-out.png)
+- [검증 결과와 원본 파일 지문](verification/history-20261019/summary.json)
+
+위 화면의 날짜·번호·금액은 시험용 합성 자료입니다.

@@ -192,10 +192,12 @@ internal fun HistoryContent(
                             listState, Modifier.weight(1f), null)
                     }
                 } else {
-                    HistoryList(visible, filter, isLoggedIn, busy, canLoadMore, onLoadMore,
-                        listState, Modifier.fillMaxSize().testTag("history-compact")) {
-                        overview()
-                        controls()
+                    Box(Modifier.fillMaxSize().testTag("history-compact")) {
+                        HistoryList(visible, filter, isLoggedIn, busy, canLoadMore, onLoadMore,
+                            listState, Modifier.fillMaxSize()) {
+                            overview()
+                            controls()
+                        }
                     }
                 }
             }
@@ -436,9 +438,8 @@ private fun HistoryCard(item: Purchase, index: Int) {
 }
 
 /**
- * 게임 1줄: 라벨 + 글로시 볼(당첨 강조/흐림/보너스 림) + 상태 필(우측 고정).
- * 좁은 기기에선 FlowRow 줄바꿈으로 필이 아래줄 왼쪽에 떨어지던 문제 → 볼 크기를 가용 폭에 맞춰
- * 축소해 항상 한 줄 유지 (갤럭시 유효 폭 384dp 사용자 리포트).
+ * 라벨과 상태는 윗줄, 번호는 아랫줄에 배치한다.
+ * 접힌 화면이나 큰 글씨에서도 상태 표시가 번호의 가용 폭을 빼앗지 않는다.
  */
 @Composable
 private fun GameRow(
@@ -469,7 +470,7 @@ private fun GameRow(
                 },
             )
         }
-        // 라벨·필이 자연 폭을 가져간 뒤 남는 폭을 볼들이 나눠 갖는다 (weight=나머지 전부).
+        // 번호 줄 전체 폭을 여섯 개의 공이 나눠 갖는다.
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             // 하한 없음: 큰 글씨·긴 필로 폭이 더 좁아져도 필을 침범하는 대신 볼이 계속 줄어든다
             val gaps = (nums.size - 1).coerceAtLeast(0)

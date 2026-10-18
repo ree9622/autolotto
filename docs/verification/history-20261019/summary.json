@@ -1,0 +1,36 @@
+{
+  "verifiedAt": "2026-10-19T07:25:28.4564482+09:00",
+  "unitTests": {
+    "failures": 0,
+    "errors": 0,
+    "total": 117
+  },
+  "screenTests": {
+    "failures": 0,
+    "environment": "isolated Android 35 emulator; synthetic records; no live account",
+    "sizes": [
+      "380x820",
+      "840x900",
+      "320x720 fontScale=1.4"
+    ],
+    "total": 6
+  },
+  "lint": {
+    "hints": 1,
+    "warnings": 62,
+    "errors": 0
+  },
+  "delivery": "source changes only; no charge, purchase, payment, scheduling or executable release changes",
+  "sourceSha256": {
+    "app/src/main/kotlin/com/umicorp/autolotto/data/HistorySummary.kt": "40221d6b727c987fdefe900fc3b1727cc0f989b9b3767e919ea4c6fadb6a007e",
+    "app/src/main/kotlin/com/umicorp/autolotto/ui/vm/ViewModels.kt": "4752c4ab3d35686eb7b4f8247b72765e62d4001f9f9d41723895a30b42d901d3",
+    "app/src/main/kotlin/com/umicorp/autolotto/ui/screen/HistoryScreen.kt": "0ffd402d89e1b8110bb892b7588c96248fab293e387e27296c77f2e3e9b57f24",
+    "app/src/main/kotlin/com/umicorp/autolotto/ui/vm/HistoryRangeLoader.kt": "e7d822ec1bc683b01ebb25a753ab6169b26ff52694d2143f95e467d00784aeca",
+    "app/src/main/kotlin/com/umicorp/autolotto/dhlottery/HistoryService.kt": "1cf7e29ea72b8bc6c5b960397728e726b90df56d6ef98c69c74ec9f831abb9b3"
+  },
+  "notVerified": [
+    "live account totals",
+    "physical fold transition",
+    "hinge posture"
+  ]
+}
