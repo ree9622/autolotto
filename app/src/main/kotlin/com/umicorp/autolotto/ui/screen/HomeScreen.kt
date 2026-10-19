@@ -4,17 +4,12 @@ package com.umicorp.autolotto.ui.screen
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -59,12 +54,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.umicorp.autolotto.R
 import com.umicorp.autolotto.ui.appViewModel
-import com.umicorp.autolotto.ui.theme.CountdownNumberStyle
 import com.umicorp.autolotto.ui.theme.LgAmber
 import com.umicorp.autolotto.ui.theme.LgGold
 import com.umicorp.autolotto.ui.theme.LgGreen
@@ -77,8 +72,10 @@ import com.umicorp.autolotto.ui.util.launchActivitySafely
 import com.umicorp.autolotto.ui.vm.HomeViewModel
 import kotlinx.coroutines.delay
 import java.time.DayOfWeek
-import java.time.Duration
-import java.time.LocalDateTime
+import java.time.ZonedDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 
 /**
  * 홈 화면 — Lucky Gloss (Material 3 Expressive) 리디자인.
@@ -152,9 +149,9 @@ fun HomeScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(20.dp),
             ) {
-                CountdownHero(vm.currentRound)
-                Spacer(Modifier.height(24.dp))
                 WinningNumbers(winning, loadingNumbers)
+                Spacer(Modifier.height(12.dp))
+                NextDrawSummary(vm.currentRound)
                 Spacer(Modifier.height(24.dp))
                 BalanceCard(balance, alertEnabled, threshold, onNavigateToDeposit)
                 Spacer(Modifier.height(16.dp))
@@ -163,7 +160,7 @@ fun HomeScreen(
                 CtaButton(onClick = onNavigateToNumbers) {
                     Text(
                         stringResource(R.string.buttonSetupNumbers),
-                        color = Color.White,
+                        color = androidx.compose.material3.LocalContentColor.current,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -173,74 +170,28 @@ fun HomeScreen(
     }
 }
 
-/** 다음 토요일 20:45까지 남은 시간(기기 로컬시각, 원본 _updateCountdown 1:1). */
-private fun durationUntilDraw(now: LocalDateTime): Duration {
-    var date = now.toLocalDate()
-    while (date.dayOfWeek != DayOfWeek.SATURDAY) date = date.plusDays(1)
-    var draw = date.atTime(20, 45)
-    if (now.isAfter(draw)) draw = draw.plusWeeks(1)
-    return Duration.between(now, draw)
-}
-
 @Composable
-private fun CountdownHero(round: Int) {
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
+internal fun NextDrawSummary(round: Int) {
+    var now by remember { mutableStateOf(ZonedDateTime.now(ZoneId.of("Asia/Seoul"))) }
+    val locale = LocalConfiguration.current.locales[0]
     LaunchedEffect(Unit) {
         while (true) {
-            now = LocalDateTime.now()
-            delay(1000)
+            now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"))
+            delay(60_000)
         }
     }
-    val left = durationUntilDraw(now)
-    val days = left.toDays()
-    val hours = left.toHours() % 24
-    val mins = left.toMinutes() % 60
-    val secs = left.seconds % 60
-
-    GradientBlobHero(title = stringResource(R.string.countdownTitle, round)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            CountdownUnit(days.toString(), stringResource(R.string.countdownDays))
-            CountdownUnit(hours.toString(), stringResource(R.string.countdownHours))
-            CountdownUnit(mins.toString(), stringResource(R.string.countdownMinutes))
-            CountdownUnit(
-                secs.toString().padStart(2, '0'),
-                stringResource(R.string.countdownSeconds),
-                animated = true,
-            )
-        }
-    }
-}
-
-/** 히어로 카운트다운 숫자 슬롯. [animated]=true(초)면 틱마다 AnimatedContent 슬라이드-페이드. */
-@Composable
-private fun CountdownUnit(value: String, label: String, animated: Boolean = false) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        if (animated) {
-            AnimatedContent(
-                targetState = value,
-                transitionSpec = {
-                    (slideInVertically(MotionSpecs.emphasized()) { it / 2 } + fadeIn(MotionSpecs.emphasized()))
-                        .togetherWith(
-                            slideOutVertically(MotionSpecs.emphasized()) { -it / 2 } +
-                                fadeOut(MotionSpecs.emphasized()),
-                        )
-                },
-                label = "secondsTick",
-            ) { v ->
-                Text(v, color = Color.White, style = CountdownNumberStyle)
-            }
-        } else {
-            Text(value, color = Color.White, style = CountdownNumberStyle)
-        }
-        Text(
-            label,
-            color = Color.White.copy(alpha = 0.8f),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
+    var draw = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY))
+        .withHour(20).withMinute(45).withSecond(0).withNano(0)
+    if (!now.isBefore(draw)) draw = draw.plusWeeks(1)
+    SectionCard(contentPadding = PaddingValues(16.dp)) {
+        Text(stringResource(R.string.nextDrawTitle, round),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        Text(stringResource(R.string.nextDrawDate,
+            draw.format(DateTimeFormatter.ofPattern("M/d (EEE) HH:mm", locale))),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

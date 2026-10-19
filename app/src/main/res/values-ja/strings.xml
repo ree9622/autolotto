@@ -12,6 +12,9 @@
     <string name="bottomNavSettings">設定</string>
 
     <string name="appTitle">LottoRoutine</string>
+    <string name="startupLoading">設定を読み込んでいます</string>
+    <string name="nextDrawTitle">次の抽選 · 第%1$d回</string>
+    <string name="nextDrawDate">%1$s · 韓国時間</string>
 
     <string name="autoPurchaseEnabled">自動購入 有効</string>
     <string name="autoPurchaseDisabled">自動購入 無効</string>

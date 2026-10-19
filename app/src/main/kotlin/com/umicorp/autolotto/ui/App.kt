@@ -10,6 +10,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -126,7 +129,7 @@ fun AppRoot(pendingTab: MutableStateFlow<String?>? = null) {
     }
 }
 
-private data class TabItem(val labelRes: Int, val icon: ImageVector)
+internal data class TabItem(val labelRes: Int, val icon: ImageVector)
 
 /**
  * 메인 셸: M3 NavigationBar 4탭. Slice 5b에서 본문을 실제 화면으로 교체.
@@ -322,7 +325,7 @@ internal fun markdownLite(src: String): AnnotatedString = buildAnnotatedString {
  * 고정 하단 네비. 떠 있는 장식을 없애고 현재 위치만 인쇄색 면으로 표시한다.
  */
 @Composable
-private fun FloatingPillNav(
+internal fun FloatingPillNav(
     tabs: List<TabItem>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
@@ -341,7 +344,7 @@ private fun FloatingPillNav(
             shadowElevation = 2.dp,
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.selectableGroup().padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -365,9 +368,9 @@ private fun RowScope.NavPillItem(
         modifier = Modifier
             .weight(1f)
             .clip(RoundedCornerShape(8.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
+            .selectable(
+                selected = selected,
+                role = Role.Tab,
                 onClick = onClick,
             )
             .padding(vertical = 4.dp),

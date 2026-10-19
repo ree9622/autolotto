@@ -12,6 +12,9 @@
     <string name="bottomNavSettings">Settings</string>
 
     <string name="appTitle">LottoRoutine</string>
+    <string name="startupLoading">Loading your settings</string>
+    <string name="nextDrawTitle">Next draw · #%1$d</string>
+    <string name="nextDrawDate">%1$s · Korea time</string>
 
     <string name="autoPurchaseEnabled">Auto Purchase Enabled</string>
     <string name="autoPurchaseDisabled">Auto Purchase Disabled</string>
