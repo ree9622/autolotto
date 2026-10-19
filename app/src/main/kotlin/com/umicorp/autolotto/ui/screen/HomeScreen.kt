@@ -264,7 +264,6 @@ private fun PopIn(index: Int, key: Any, content: @Composable () -> Unit) {
 private fun WinningNumbers(winning: com.umicorp.autolotto.data.WinningResult?, loading: Boolean) {
     Column {
         SectionHeader(
-            // 이모지는 R.string에 이미 포함(🏆 …) — 코드에서 덧붙이면 중복 표시
             text = if (winning != null) stringResource(R.string.winningNumbersWithRound, winning.round)
             else stringResource(R.string.winningNumbersPrevious),
         )

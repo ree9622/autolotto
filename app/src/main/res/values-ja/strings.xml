@@ -17,7 +17,7 @@
     <string name="autoPurchaseDisabled">自動購入 無効</string>
     <string name="autoPurchaseSchedule">%1$sに自動購入されます</string>
     <string name="enableInSettings">設定で有効にしてください</string>
-    <string name="buttonSetupNumbers">🎯 番号を設定する</string>
+    <string name="buttonSetupNumbers">番号を設定する</string>
 
     <string name="countdownTitle">第%1$d回 抽選まで</string>
     <string name="countdownDays">日</string>
@@ -25,8 +25,8 @@
     <string name="countdownMinutes">分</string>
     <string name="countdownSeconds">秒</string>
 
-    <string name="winningNumbersWithRound">🏆 第%1$d回 当選番号</string>
-    <string name="winningNumbersPrevious">🏆 前回の当選番号</string>
+    <string name="winningNumbersWithRound">第%1$d回 当選番号</string>
+    <string name="winningNumbersPrevious">前回の当選番号</string>
     <string name="winningNumbersLoadError">当選番号を読み込めません</string>
 
     <string name="balanceTitle">預り金残高</string>
@@ -34,19 +34,19 @@
     <string name="numberSetupTitle">番号設定</string>
     <string name="bannerEnableAutoPurchase">設定で自動購入を有効にしてください</string>
     <string name="numberSetupInstruction">毎週自動購入する番号を設定してください。\n手動番号は毎週固定、自動は毎週ランダム生成されます。</string>
-    <string name="modeManual">✏️ 手動</string>
-    <string name="modeAuto">🎲 自動</string>
+    <string name="modeManual">手動</string>
+    <string name="modeAuto">自動</string>
     <string name="autoNumberTitle">自動番号</string>
     <string name="autoNumberSubtitle">毎週ランダムに生成されます</string>
     <string name="buttonAllAuto">すべて自動</string>
     <string name="buttonReset">リセット</string>
     <string name="buttonConfirmGame">ゲーム%1$s 確定 ✓</string>
     <string name="selectionCount">選択: %1$d/6</string>
-    <string name="gameSummaryTitle">📋 ゲーム設定</string>
+    <string name="gameSummaryTitle">ゲーム設定</string>
     <string name="gameSummarySelecting">いま設定中</string>
     <string name="rollingAllAuto">運試し中</string>
     <string name="gameSummaryNotSet">未設定</string>
-    <string name="gameSummaryAuto">🎲 自動 (毎週ランダム)</string>
+    <string name="gameSummaryAuto">自動 (毎週ランダム)</string>
     <string name="buttonSaveDone">保存完了！</string>
     <string name="buttonSaveGames">%1$dゲーム設定を保存</string>
     <string name="buttonSaveEmpty">ゲームなしで保存</string>
@@ -61,7 +61,7 @@
     <string name="historyLoadMore">もっと見る</string>
     <string name="statusPending">確認待ち</string>
     <string name="statusNoWin">落選</string>
-    <string name="rankWithEmoji">%1$s 🎉</string>
+    <string name="rankWithEmoji">%1$s</string>
     <string name="roundLabel">第%1$d回</string>
     <string name="prizeLabel">当選金: ₩%1$s</string>
     <string name="rank1st">1等</string>
@@ -71,10 +71,10 @@
     <string name="rank5th">5等</string>
 
     <string name="settingsTitle">設定</string>
-    <string name="sectionAccount">👤 アカウント</string>
-    <string name="sectionAutoPurchase">⏰ 自動購入</string>
-    <string name="sectionNotifications">🔔 通知</string>
-    <string name="sectionAppInfo">📱 アプリ情報</string>
+    <string name="sectionAccount">アカウント</string>
+    <string name="sectionAutoPurchase">自動購入</string>
+    <string name="sectionNotifications">通知</string>
+    <string name="sectionAppInfo">アプリ情報</string>
 
     <string name="dhLotteryAccount">同行福券アカウント</string>
     <string name="statusLoggedIn">ログイン済み</string>
@@ -179,7 +179,7 @@
     <string name="extraPickTitle">追加購入 (自動)</string>
     <string name="extraPickBody">自動ゲーム数を選択してください。週間上限(5ゲーム)を超えるとサーバーで拒否されます。</string>
     <string name="instantInProgress">購入中…</string>
-    <string name="instantSuccessTitle">🎰 購入完了!</string>
+    <string name="instantSuccessTitle">購入完了</string>
     <string name="instantSuccessBody">第%1$d回 · %2$dゲーム</string>
     <string name="instantErrorTitle">購入失敗</string>
     <string name="instantUnknownResult">購入が受け付けられた可能性があります。\n履歴タブで確認してから再試行してください。</string>

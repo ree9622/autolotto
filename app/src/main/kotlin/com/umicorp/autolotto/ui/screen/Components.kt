@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,11 +34,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,13 +46,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.umicorp.autolotto.ui.theme.LgAmber
+import com.umicorp.autolotto.ui.theme.LgGold
 import com.umicorp.autolotto.ui.theme.MotionSpecs
 import com.umicorp.autolotto.ui.theme.ctaGradient
 import com.umicorp.autolotto.ui.theme.heroGradient
 import com.umicorp.autolotto.ui.util.ballColor
 
 /**
- * 로또 번호 공 (홈·번호·내역 공유). Lucky Gloss "캔디" 룩: 방사형 하이라이트 + 소프트 그림자 + 림.
+ * 로또 번호 공 (홈·번호·내역 공유). 실제 추첨표처럼 평평한 색과 선명한 숫자를 쓴다.
  * 공개 API는 기존 그대로 (n, size, selected, dimmed, bordered, onClick) + matched 추가.
  *
  * - [selected]=false: 미선택(번호 그리드) — 중립 톤(surfaceVariant), 흐린 광택.
@@ -104,22 +102,13 @@ fun LottoBall(
         animationSpec = MotionSpecs.bouncy(),
         label = "ballScale",
     )
-    val elevation by animateDpAsState(
-        targetValue = if (selected && !dimmed) 5.dp else 1.dp,
-        animationSpec = MotionSpecs.gentle(),
-        label = "ballElev",
-    )
-
-    val highlight = lerp(base, Color.White, 0.65f)
-    val rim = lerp(base, Color.Black, if (selected && !dimmed) 0.28f else 0.12f)
-    // 강조 림은 볼 색상과 같은 계열(진한 톤) — 파랑볼→진파랑, 노랑볼→진노랑 (사용자 피드백)
+    val rim = lerp(base, Color.Black, if (selected && !dimmed) 0.18f else 0.08f)
     val bonusRim = lerp(ballColor(n), Color.Black, 0.38f)
     // 당첨 매치 할로: 갭=카드색(SectionCard surfaceContainerLowest), 링=라이트 앰버/다크 크림(사용자 피드백).
     // 라이트 앰버(골드보다 한 톤 진함 — 흰 카드·노랑 볼과 분리)는 3dp, 다크 크림은 2dp 유지.
-    val darkTheme = isSystemInDarkTheme()
     val matchGap = MaterialTheme.colorScheme.surfaceContainerLowest
-    val matchRing = if (darkTheme) MaterialTheme.colorScheme.onSurface else LgAmber
-    val matchRingWidth = if (darkTheme) 2.dp else 3.dp
+    val matchRing = LgAmber
+    val matchRingWidth = 3.dp
 
     Box(
         modifier = modifier
@@ -128,31 +117,12 @@ fun LottoBall(
                 scaleX = scale
                 scaleY = scale
             }
-            .shadow(elevation, CircleShape, clip = false)
             .clip(CircleShape)
             .drawBehind {
                 val w = this.size.width
-                val h = this.size.height
-                // 할로 시엔 볼 전체를 링 안쪽 크기로 스케일 — 그라디언트 가장자리를 자르면 물빠져 보임.
-                val ballScale = if (matched) (w / 2 - 4.dp.toPx()) / (w / 2) else 1f
-                scale(ballScale) {
-                    // 캔디 방사형 셰이딩: 좌상단 하이라이트 → base → 하단 어두운 림.
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(highlight, base, rim),
-                            center = Offset(w * 0.35f, h * 0.30f),
-                            radius = w * 0.85f,
-                        ),
-                    )
-                    // 상단 스페큘러 하이라이트.
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.55f), Color.Transparent),
-                            center = Offset(w * 0.36f, h * 0.24f),
-                            radius = w * 0.28f,
-                        ),
-                    )
-                }
+                val radius = w / 2 - if (matched) 4.dp.toPx() else 0f
+                drawCircle(base, radius = radius)
+                drawCircle(rim, radius = radius, style = Stroke(1.dp.toPx()))
                 if (matched) {
                     // 갭(R-4..R-2, 그림자 가림용 불투명)·링(외곽 R 고정) — 갭을 살짝 넓혀 AA 이음새를 덮는다.
                     val ringPx = matchRingWidth.toPx()
@@ -196,7 +166,7 @@ fun LottoBall(
     }
 }
 
-/** 라운드 카드(넉넉한 여백) — 화면 공용. 프로스트 표면(surfaceContainerLowest). */
+/** 얇은 인쇄선으로 구분한 공용 작업 면. */
 @Composable
 fun SectionCard(
     modifier: Modifier = Modifier,
@@ -205,16 +175,17 @@ fun SectionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(Modifier.padding(contentPadding), content = content)
     }
 }
 
 /**
- * 홈 카운트다운용 유기적 "리퀴드" 히어로 (blue→teal→orange 그라디언트).
+ * 홈 카운트다운용 번호표 머리말. 단색 인쇄면과 노란 기준선만 사용한다.
  * [title]은 상단 라벨(예: "제 1232회 추첨까지"), [content]에 큰 숫자 슬롯을 넣는다. 텍스트는 흰색 기준.
  */
 @Composable
@@ -223,14 +194,13 @@ fun GradientBlobHero(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    // 좌우 비대칭 라운드 = 유기적 blob 느낌.
-    val blob = RoundedCornerShape(topStart = 64.dp, topEnd = 44.dp, bottomStart = 44.dp, bottomEnd = 64.dp)
+    val shape = MaterialTheme.shapes.large
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(10.dp, blob, clip = false)
-            .clip(blob)
+            .clip(shape)
             .background(heroGradient())
+            .border(1.dp, MaterialTheme.colorScheme.primary, shape)
             .padding(horizontal = 24.dp, vertical = 28.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -238,6 +208,7 @@ fun GradientBlobHero(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            Box(Modifier.size(width = 36.dp, height = 4.dp).background(LgGold, RoundedCornerShape(2.dp)))
             Text(
                 text = title,
                 color = Color.White,
@@ -250,7 +221,7 @@ fun GradientBlobHero(
 }
 
 /**
- * 컬러 드렌치 카드 (예치금=틸, 자동구매=민트). [accent] 그라디언트로 꽉 채운다. 텍스트/아이콘 흰색 기준.
+ * 상태 강조 카드. [accent] 단색으로 채우며 장식성 그라데이션과 그림자는 쓰지 않는다.
  * [onClick] 지정 시 클릭 가능(예: 예치금 카드 → 상세).
  */
 @Composable
@@ -260,13 +231,12 @@ fun ColorDrenchedCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = MaterialTheme.shapes.large
+    val shape = MaterialTheme.shapes.medium
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(4.dp, shape, clip = false)
             .clip(shape)
-            .background(Brush.linearGradient(listOf(lerp(accent, Color.White, 0.12f), lerp(accent, Color.Black, 0.18f))))
+            .background(accent)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(20.dp),
     ) {
@@ -282,19 +252,19 @@ fun TonalCard(
     contentPadding: PaddingValues = PaddingValues(20.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = MaterialTheme.shapes.large
+    val shape = MaterialTheme.shapes.medium
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(lerp(accent, MaterialTheme.colorScheme.surface, 0.82f))
-            .border(1.dp, accent.copy(alpha = 0.22f), shape)
+            .background(lerp(accent, MaterialTheme.colorScheme.surface, 0.90f))
+            .border(1.dp, accent.copy(alpha = 0.28f), shape)
             .padding(contentPadding),
         content = content,
     )
 }
 
-/** 광택 라운드 스퀘어 아이콘 타일 (설정 행 등). [tint] 그라디언트 위에 흰 아이콘. */
+/** 설정 행의 절제된 아이콘 타일. */
 @Composable
 fun GlossyIconTile(
     icon: ImageVector,
@@ -303,19 +273,18 @@ fun GlossyIconTile(
     size: Dp = 40.dp,
     contentDescription: String? = null,
 ) {
-    val shape = RoundedCornerShape(size.value * 0.32f)
+    val shape = RoundedCornerShape(8.dp)
     Box(
         modifier = modifier
             .size(size)
-            .shadow(2.dp, shape, clip = false)
             .clip(shape)
-            .background(Brush.linearGradient(listOf(lerp(tint, Color.White, 0.28f), tint))),
+            .background(tint.copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             icon,
             contentDescription = contentDescription,
-            tint = Color.White,
+            tint = tint,
             modifier = Modifier.size(size * 0.56f),
         )
     }
@@ -340,7 +309,7 @@ fun StatusPill(
     }
     Box(
         modifier = modifier
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
@@ -364,11 +333,11 @@ fun SectionHeader(
         modifier = modifier.padding(vertical = 4.dp),
         color = MaterialTheme.colorScheme.onSurface,
         style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = FontWeight.Bold,
     )
 }
 
-/** 딥네이비 CTA 그라디언트 버튼 (핵심 액션: 번호 설정/구매). 라벨/아이콘 흰색. */
+/** 단색 주 행동 버튼. */
 @Composable
 fun CtaButton(
     onClick: () -> Unit,
@@ -376,13 +345,12 @@ fun CtaButton(
     enabled: Boolean = true,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
-    val shape = CircleShape
+    val shape = RoundedCornerShape(10.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(if (enabled) 6.dp else 0.dp, shape, clip = false)
             .clip(shape)
-            .background(if (enabled) ctaGradient() else Brush.linearGradient(listOf(Color(0xFFB9B4A8), Color(0xFFB9B4A8))))
+            .background(if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 18.dp),
         horizontalArrangement = Arrangement.Center,
@@ -391,16 +359,9 @@ fun CtaButton(
     )
 }
 
-/** 은은한 크림 페이지 배경(부드러운 피치 blob 느낌). 스크린 루트에 붙일 수 있는 헬퍼. */
+/** 중립 작업 배경. 기존 호출부 이름은 호환을 위해 유지한다. */
 @Composable
 fun Modifier.creamPageBackground(): Modifier {
     val scheme = MaterialTheme.colorScheme
-    return this.background(
-        Brush.verticalGradient(
-            listOf(
-                lerp(scheme.background, Color(0xFFF7D9B8), 0.10f),
-                scheme.background,
-            ),
-        ),
-    )
+    return this.background(scheme.background)
 }
