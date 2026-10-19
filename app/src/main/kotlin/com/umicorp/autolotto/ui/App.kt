@@ -319,8 +319,7 @@ internal fun markdownLite(src: String): AnnotatedString = buildAnnotatedString {
 }
 
 /**
- * 플로팅 알약(pill) 하단 네비. M3 NavigationBar 대신 크림 위에 떠 있는 둥근 pill.
- * 4탭(홈/번호/내역/설정) + 선택 시 틸 인디케이터 pill + 아이콘 스프링 바운스. 라벨은 stringResource 그대로.
+ * 고정 하단 네비. 떠 있는 장식을 없애고 현재 위치만 인쇄색 면으로 표시한다.
  */
 @Composable
 private fun FloatingPillNav(
@@ -332,16 +331,17 @@ private fun FloatingPillNav(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(top = 1.dp),
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = CircleShape,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 12.dp,
+            tonalElevation = 0.dp,
+            shadowElevation = 2.dp,
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -359,38 +359,31 @@ private fun RowScope.NavPillItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val scale by animateFloatAsState(
-        targetValue = if (selected) 1.14f else 1f,
-        animationSpec = MotionSpecs.bouncy(),
-        label = "navScale",
-    )
     val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     val indicator = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
     Column(
         modifier = Modifier
             .weight(1f)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(8.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
             )
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(percent = 50))
+                .clip(RoundedCornerShape(7.dp))
                 .background(indicator)
-                .padding(horizontal = 18.dp, vertical = 5.dp),
+                .padding(horizontal = 18.dp, vertical = 4.dp),
         ) {
             Icon(
                 tab.icon,
                 contentDescription = null,
                 tint = tint,
-                modifier = Modifier
-                    .size(24.dp)
-                    .graphicsLayer { scaleX = scale; scaleY = scale },
+                modifier = Modifier.size(24.dp),
             )
         }
         Spacer(Modifier.height(3.dp))

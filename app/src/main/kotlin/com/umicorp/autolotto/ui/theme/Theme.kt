@@ -22,22 +22,22 @@ import androidx.compose.ui.unit.sp
  * ponytail: 다크 스킴도 제공하되 현재 앱은 라이트 위주. darkTheme는 시스템값 따라감.
  */
 
-/** 둥근 모서리 셰이프 세트 — extraLarge 28 / large 22 / medium 16. */
+/** 종이 번호표처럼 절제된 모서리. */
 private val LgShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(10.dp),
+    large = RoundedCornerShape(14.dp),
+    extraLarge = RoundedCornerShape(18.dp),
 )
 
 /** Expressive 타이포 — 디스플레이/타이틀은 굵게(딥네이비 잉크는 스킴 onSurface가 처리). */
 private val LgTypography = Typography().run {
     copy(
-        displayLarge = displayLarge.copy(fontWeight = FontWeight.Black),
-        displayMedium = displayMedium.copy(fontWeight = FontWeight.Black),
-        displaySmall = displaySmall.copy(fontWeight = FontWeight.ExtraBold),
-        headlineLarge = headlineLarge.copy(fontWeight = FontWeight.ExtraBold),
+        displayLarge = displayLarge.copy(fontWeight = FontWeight.Bold),
+        displayMedium = displayMedium.copy(fontWeight = FontWeight.Bold),
+        displaySmall = displaySmall.copy(fontWeight = FontWeight.Bold),
+        headlineLarge = headlineLarge.copy(fontWeight = FontWeight.Bold),
         headlineMedium = headlineMedium.copy(fontWeight = FontWeight.Bold),
         headlineSmall = headlineSmall.copy(fontWeight = FontWeight.Bold),
         titleLarge = titleLarge.copy(fontWeight = FontWeight.Bold),
@@ -47,7 +47,7 @@ private val LgTypography = Typography().run {
 }
 
 /** 히어로 카운트다운 숫자용 초대형 볼드 스타일(스킴에 없어 헬퍼로 노출). */
-val CountdownNumberStyle = TextStyle(fontWeight = FontWeight.Black, fontSize = 56.sp)
+val CountdownNumberStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 42.sp)
 
 @Composable
 fun AutoLottoTheme(
