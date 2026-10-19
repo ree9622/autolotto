@@ -320,7 +320,7 @@ fun DepositScreen(
                             Icon(
                                 Icons.Rounded.AccountBalance,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = androidx.compose.material3.LocalContentColor.current,
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
@@ -329,7 +329,7 @@ fun DepositScreen(
                                 } else {
                                     stringResource(R.string.depositBtnIssue)
                                 },
-                                color = Color.White,
+                                color = androidx.compose.material3.LocalContentColor.current,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                             )

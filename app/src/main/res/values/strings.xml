@@ -14,6 +14,9 @@
     <string name="bottomNavSettings">설정</string>
 
     <string name="appTitle">로또루틴</string>
+    <string name="startupLoading">설정을 불러오고 있습니다</string>
+    <string name="nextDrawTitle">제 %1$d회 다음 추첨</string>
+    <string name="nextDrawDate">%1$s · 한국 시간</string>
 
     <!-- 홈 -->
     <string name="autoPurchaseEnabled">자동 구매 활성화</string>

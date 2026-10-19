@@ -311,7 +311,7 @@ fun NumberScreen(modifier: Modifier = Modifier) {
                 ) {
                     Text(
                         stringResource(R.string.buttonConfirmGame, ('A' + currentSlot).toString()),
-                        color = Color.White,
+                        color = androidx.compose.material3.LocalContentColor.current,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -761,7 +761,7 @@ private fun InstantPurchaseCta(
             disabledLabel ?: stringResource(
                 if (purchasedThisRound) R.string.buttonExtraPurchase else R.string.buttonInstantPurchase,
             ),
-            color = Color.White,
+            color = androidx.compose.material3.LocalContentColor.current,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
         )
