@@ -1,6 +1,7 @@
 package com.umicorp.autolotto.dhlottery
 
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -100,5 +101,30 @@ class DomainCookieStoreTest {
 
         assertTrue(store.hasCookie("JSESSIONID"))
         assertFalse(store.hasCookie("WMONID"))
+    }
+
+    @Test
+    fun `frozen cookie keeps its value until unfrozen`() {
+        val store = DomainCookieStore()
+        val url = "https://el.dhlottery.co.kr/".toHttpUrl()
+        store.store(listOf("JSESSIONID=first; Path=/"), "el.dhlottery.co.kr")
+        store.freeze("JSESSIONID")
+        store.store(listOf("JSESSIONID=second; Path=/"), "el.dhlottery.co.kr")
+        assertEquals("first", store.cookieValue(url, "JSESSIONID"))
+
+        store.unfreeze("JSESSIONID")
+        store.store(listOf("JSESSIONID=third; Path=/"), "el.dhlottery.co.kr")
+        assertEquals("third", store.cookieValue(url, "JSESSIONID"))
+    }
+
+    @Test
+    fun `cookie value follows the same host and secure rules as the header`() {
+        val store = DomainCookieStore()
+        store.store(listOf("A=shared; Domain=.dhlottery.co.kr; Secure"), "www.dhlottery.co.kr")
+
+        assertEquals("shared", store.cookieValue("https://el.dhlottery.co.kr/".toHttpUrl(), "A"))
+        assertEquals(null, store.cookieValue("http://el.dhlottery.co.kr/".toHttpUrl(), "A"))
+        assertEquals(null, store.cookieValue("https://example.com/".toHttpUrl(), "A"))
+        assertEquals(null, store.cookieValue("https://el.dhlottery.co.kr/".toHttpUrl(), "B"))
     }
 }

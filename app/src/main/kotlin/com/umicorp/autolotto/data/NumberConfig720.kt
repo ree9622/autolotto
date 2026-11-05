@@ -1,0 +1,134 @@
+package com.umicorp.autolotto.data
+
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * 연금복권720+ "번호" 탭 슬롯 모델 (설계 §3) — 배타적 sealed 4상태.
+ *
+ * 모드는 필드에서 파생된다(별도 mode 필드 없음 → 필드↔모드 모순 불가). 핵심 불변식:
+ * **"조 자동 + 번호 수동" 조합은 타입상 표현 불가** — 조를 자동에 맡기면 번호도 자동([FullAuto]),
+ * 번호를 수동으로 찍으려면 조를 반드시 고정([Manual])해야 한다.
+ *
+ * 생성 시 require로 검증 — 파서 버그(범위 밖 조·자릿수 오류)가 committed에 새지 않도록 생성 지점 차단.
+ */
+sealed interface Slot720 {
+    /** 미설정 — 구매하지 않는 슬롯. non-Unset 슬롯 수 = 게임 수. */
+    data object Unset : Slot720
+
+    /** 완전 자동 — 조·번호 모두 구매 직전 서버 배정(연출은 non-authoritative). */
+    data object FullAuto : Slot720
+
+    /** 반자동 — 조만 고정, 번호는 서버 배정. */
+    data class SemiAuto(val group: Int) : Slot720 {
+        init { require(group in 1..5) { "조는 1~5여야 합니다: $group" } }
+    }
+
+    /** 수동 — 조 고정 + 6자리 확정(각 자리 0~9, 순서 중요, 자리별 중복 허용). */
+    data class Manual(val group: Int, val digits: List<Int>) : Slot720 {
+        init {
+            require(group in 1..5) { "조는 1~5여야 합니다: $group" }
+            require(digits.size == 6) { "번호는 6자리여야 합니다: ${digits.size}자리" }
+            require(digits.all { it in 0..9 }) { "각 자리는 0~9여야 합니다: $digits" }
+        }
+    }
+}
+
+/**
+ * 점유(매진) 실패 폴백 정책 (설계 §6). 조+번호 모두 자동 배정(기본) / 조 유지·번호 자동 배정 / 포기(스킵).
+ * 직렬화는 name 기반([FallbackPolicy.valueOf]) — 멤버 추가는 하위호환, 순서 변경도 무해.
+ */
+enum class FallbackPolicy { REASSIGN_ALL, KEEP_GROUP_RANDOM, GIVE_UP }
+
+/**
+ * "번호" 탭 저장 설정 (설계 §3, §10). [slots]는 항상 5개(A~E).
+ *
+ * [revision]은 단조 증가(설정을 원복해도 새 리비전), [schemaVersion]은 마이그레이션 분기용이다.
+ * 저장은 구매 승인이 아니다 — 자동구매 스위치와 무관하다.
+ */
+data class NumberConfig720(
+    val slots: List<Slot720>,
+    val fallback: FallbackPolicy,
+    val schemaVersion: Int,
+    val revision: Long,
+    val setMode: Boolean = false,
+) {
+    init { require(slots.size == 5) { "슬롯은 5개여야 합니다: ${slots.size}개" } }
+
+    /** 설정된(=구매 대상) 게임 수. 세트 모드는 5개 조 = 항상 5게임. */
+    val gameCount: Int get() = if (setMode) 5 else slots.count { it != Slot720.Unset }
+
+    /** canonical JSON(필드 고정 순서) — 저장·해시 공용. */
+    fun toJson(): String = JSONObject().apply {
+        put("schemaVersion", if (setMode) 2 else 1)   // 세트 미사용자는 v1 유지 → 구버전 앱 무손실
+        put("revision", revision)
+        put("fallback", fallback.name)
+        put("setMode", setMode)
+        put("slots", JSONArray().apply { slots.forEach { put(slotToJson(it)) } })
+    }.toString()
+
+    companion object {
+        /** 현재 스키마 버전. setMode(세트) 데이터만 v2. 미지(미래) 버전은 휴리스틱 파싱 금지 → 안전 기본값으로. */
+        const val CURRENT_SCHEMA = 2
+        private const val MIN_SCHEMA = 1
+
+        /** 전부 Unset·기본 폴백·revision 0(구매 안 함). 초기설정은 게임 없음 — A 게임부터 직접 설정. */
+        fun empty(): NumberConfig720 =
+            NumberConfig720(List(5) { Slot720.Unset }, FallbackPolicy.REASSIGN_ALL, 1, 0L, setMode = false)
+
+        /**
+         * 저장 JSON → 설정. 손상·미지 스키마·범위 밖 값은 **거절/안전화**(설계 §3, §10):
+         *  - 파싱 자체 실패 → null(호출부가 마이그레이션/기본값으로 폴백).
+         *  - schemaVersion ∉ MIN..CURRENT(미래 버전) → 휴리스틱 금지, [empty] 반환. v1·v2는 수용.
+         *  - 개별 슬롯 손상(조∉1..5·자릿수≠6·digit∉0..9·미지 type) → 그 슬롯만 Unset으로.
+         *  - 슬롯 수 5 초과는 잘라내고, 부족하면 Unset으로 채운다.
+         */
+        fun fromJson(json: String?): NumberConfig720? {
+            if (json.isNullOrBlank()) return null
+            val obj = runCatching { JSONObject(json) }.getOrNull() ?: return null
+            val schema = obj.optInt("schemaVersion", -1)
+            if (schema !in MIN_SCHEMA..CURRENT_SCHEMA) return empty()   // 미지(미래) 버전만 fail-closed
+            val setMode = schema >= 2 && obj.optBoolean("setMode", false)   // 세트는 v2에서만 — v1의 오탁 필드 무시
+            val revision = obj.optLong("revision", 0L).coerceAtLeast(0L)
+            val fallback = runCatching { FallbackPolicy.valueOf(obj.optString("fallback")) }
+                .getOrDefault(FallbackPolicy.REASSIGN_ALL)
+            val arr = obj.optJSONArray("slots")
+            val slots = MutableList<Slot720>(5) { Slot720.Unset }
+            if (arr != null) {
+                for (i in 0 until minOf(arr.length(), 5)) {
+                    slots[i] = arr.optJSONObject(i)?.let { slotFromJson(it) } ?: Slot720.Unset
+                }
+            }
+            // schemaVersion 필드는 CURRENT로 정규화(원래 계약) — 디스크 v1/v2 구분은 setMode가 담당,
+            // 저장 시 toJson이 setMode로 스키마를 재도출하므로 인메모리 값은 왕복 불변식만 지키면 된다.
+            return NumberConfig720(slots, fallback, CURRENT_SCHEMA, revision, setMode)
+        }
+
+        private fun slotToJson(slot: Slot720): JSONObject = JSONObject().apply {
+            when (slot) {
+                Slot720.Unset -> put("type", "unset")
+                Slot720.FullAuto -> put("type", "fullAuto")
+                is Slot720.SemiAuto -> { put("type", "semiAuto"); put("group", slot.group) }
+                is Slot720.Manual -> {
+                    put("type", "manual")
+                    put("group", slot.group)
+                    put("digits", JSONArray(slot.digits))
+                }
+            }
+        }
+
+        /** 슬롯 1개 파싱 — 손상 값은 null 반환(호출부가 Unset으로 안전화). */
+        private fun slotFromJson(obj: JSONObject): Slot720? = when (obj.optString("type")) {
+            "unset" -> Slot720.Unset
+            "fullAuto" -> Slot720.FullAuto
+            "semiAuto" -> runCatching { Slot720.SemiAuto(obj.getInt("group")) }.getOrNull()
+            "manual" -> {
+                val arr = obj.optJSONArray("digits")
+                val digits = if (arr == null) null else (0 until arr.length()).map { arr.optInt(it, -1) }
+                if (digits == null) null
+                else runCatching { Slot720.Manual(obj.getInt("group"), digits) }.getOrNull()
+            }
+            else -> null
+        }
+    }
+}
