@@ -1,5 +1,12 @@
 # AutoLotto 배포 워크플로우 (vX.Y.Z 릴리스)
 
+> **현재 경로(2026-11-06 확인)**: 배포 저장소는 `ree9622/autolotto`(인앱 업데이터 `AppUpdater.kt`가 이 저장소의 `releases/latest`를 본다).
+> `versionCode`·`versionName`을 올려 main에 푸시한 뒤 `.github/workflows/release.yml`의 릴리스 노트를 고치고 `vX.Y.Z` 태그를 푸시하면
+> 깃허브 작업이 저장소 비밀값의 키로 서명 빌드·릴리스 게시까지 한다(v1.3.0~v1.6.0). 생성 단계가 일시 오류로 실패하면 `gh run rerun <id> --failed`.
+> 게시 후 `releases/latest`의 태그·에셋과, 받은 APK의 `aapt` 버전·`apksigner` 인증서 SHA-256
+> `f899215e3fee38ba64504bf9179fb94bdc7540667d851c481b66582cc898aef2`(v1.5.0·v1.6.0 동일)를 확인한다.
+> 아래 로컬 수동 절차와 `umi-corp` 주소·인증서 값은 예전 기록이다.
+
 "vX.Y.Z 배포" 요청 시 아래 순서를 그대로 따른다. 배포 채널은 GitHub Releases 하나이며,
 랜딩 페이지(autolotto.umicorp.kr)와 인앱 업데이터가 `releases/latest`를 자동 추적하므로
 릴리스만 올리면 끝 — **랜딩 페이지(docs/index.html)는 절대 손대지 않는다.**
