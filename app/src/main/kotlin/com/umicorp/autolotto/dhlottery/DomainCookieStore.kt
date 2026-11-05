@@ -11,9 +11,20 @@ import okhttp3.HttpUrl
 class DomainCookieStore {
     private val domainCookies = LinkedHashMap<String, LinkedHashMap<String, Cookie>>()
 
+    // 고정된 쿠키는 Set-Cookie로 바뀌지 않는다. 연금복권 구매 중 서버가 JSESSIONID를 회전시켜도
+    // 주문(makeOrderNo)과 결제(connPro)가 같은 세션에 묶이게 한다.
+    private val frozen = HashSet<String>()
+
+    @Synchronized
+    fun freeze(name: String) { frozen.add(name) }
+
+    @Synchronized
+    fun unfreeze(name: String) { frozen.remove(name) }
+
     @Synchronized
     fun clear() {
         domainCookies.clear()
+        frozen.clear()
     }
 
     /** 호스트만 아는 기존 호출자는 HTTPS로 취급한다. 실제 요청은 URL 경로를 사용한다. */
@@ -45,9 +56,29 @@ class DomainCookieStore {
         val origin = HttpUrl.Builder().scheme("https").host(requestHost).build()
         for (header in setCookieHeaders) {
             val cookie = Cookie.parse(origin, header) ?: continue
+            if (cookie.name in frozen) continue
             val domain = if (cookie.hostOnly) cookie.domain else ".${cookie.domain}"
             domainCookies.getOrPut(domain) { LinkedHashMap() }[cookie.name] = cookie
         }
+    }
+
+    /**
+     * [url]로 전송될 쿠키 중 [name]의 값. 연금복권 암호화 키(el JSESSIONID) 조회용으로,
+     * www와 el의 JSESSIONID가 다를 수 있어 전송 규칙([cookieHeader])과 같은 우선순위로 찾는다.
+     */
+    @Synchronized
+    fun cookieValue(url: HttpUrl, name: String): String? {
+        var value: String? = null
+        for ((domain, cookies) in domainCookies) {
+            if (domain.startsWith(".")) {
+                val suffix = domain.substring(1)
+                if (url.host == suffix || url.host.endsWith(".$suffix")) {
+                    cookies[name]?.takeIf { !it.secure || url.isHttps }?.let { value = it.value }
+                }
+            }
+        }
+        domainCookies[url.host]?.get(name)?.takeIf { !it.secure || url.isHttps }?.let { value = it.value }
+        return value
     }
 
     @Synchronized

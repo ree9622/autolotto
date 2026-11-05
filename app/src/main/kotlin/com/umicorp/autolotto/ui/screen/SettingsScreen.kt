@@ -502,7 +502,7 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
 
 /** ListItem 컨테이너 투명 — 부모 카드색이 비치게(섹션 묶음 룩). */
 @Composable
-private fun transparentListColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
+internal fun transparentListColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
 /** 광택 그라디언트 아이콘 타일(Lucky Gloss) — 행별 [tint]로 캔디 컬러 구분. */
 @Composable
@@ -510,7 +510,7 @@ private fun SettingIcon(icon: ImageVector, tint: Color = LgTeal) = GlossyIconTil
 
 /** 스위치 행(원본 SwitchListTile) — 행 전체 탭으로도 토글. */
 @Composable
-private fun SwitchRow(
+internal fun SwitchRow(
     title: String,
     checked: Boolean,
     onChange: (Boolean) -> Unit,
@@ -530,7 +530,7 @@ private fun SwitchRow(
 
 /** 인라인 드롭다운(원본 trailing DropdownButton). 트리거 = 라벨+▾, 항목은 DropdownMenu. */
 @Composable
-private fun <T> InlineDropdown(
+internal fun <T> InlineDropdown(
     selected: T,
     options: List<T>,
     label: @Composable (T) -> String,
@@ -713,7 +713,7 @@ private fun ThresholdDialog(initial: Int, onDismiss: () -> Unit, onConfirm: (Int
 
 /** M3 시간 선택 다이얼로그(원본 showTimePicker, 24시간제). */
 @Composable
-private fun TimePickerDialog(initialHour: Int, initialMinute: Int, onDismiss: () -> Unit, onConfirm: (Int, Int) -> Unit) {
+internal fun TimePickerDialog(initialHour: Int, initialMinute: Int, onDismiss: () -> Unit, onConfirm: (Int, Int) -> Unit) {
     val state = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = true)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -747,14 +747,14 @@ private fun openAppNotificationSettings(context: Context) {
     )
 }
 
-private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+internal fun isIgnoringBatteryOptimizations(context: Context): Boolean {
     val pm = context.getSystemService(PowerManager::class.java)
     return pm?.isIgnoringBatteryOptimizations(context.packageName) == true
 }
 
 // ponytail: ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS는 Play 정책 경고(BatteryLife) 대상이나 원본 동작과 1:1.
 @SuppressLint("BatteryLife")
-private fun requestIgnoreBatteryOptimizations(context: Context) {
+internal fun requestIgnoreBatteryOptimizations(context: Context) {
     context.launchActivitySafely(
         Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}")),
     )

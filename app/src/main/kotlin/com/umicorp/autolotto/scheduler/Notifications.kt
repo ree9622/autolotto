@@ -40,6 +40,7 @@ object Notifications {
     const val EXTRA_TAB = "navigate_tab"
     const val TAB_HISTORY = "history"
     const val TAB_SETTINGS = "settings"
+    const val TAB_PENSION = "pension"
 
     /**
      * 알림 표시. 본문이 여러 줄이므로 BigTextStyle로 전체 노출(원본 flutter_local_notifications가

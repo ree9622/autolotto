@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -86,6 +87,7 @@ import com.umicorp.autolotto.ui.screen.DepositScreen
 import com.umicorp.autolotto.ui.screen.HistoryScreen
 import com.umicorp.autolotto.ui.screen.HomeScreen
 import com.umicorp.autolotto.ui.screen.NumberScreen
+import com.umicorp.autolotto.ui.screen.PensionScreen
 import com.umicorp.autolotto.ui.screen.SettingsScreen
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -131,8 +133,11 @@ fun AppRoot(pendingTab: MutableStateFlow<String?>? = null) {
 
 internal data class TabItem(val labelRes: Int, val icon: ImageVector)
 
+private const val PAGE_PENSION = 3
+private const val PAGE_SETTINGS = 4
+
 /**
- * 메인 셸: M3 NavigationBar 4탭. Slice 5b에서 본문을 실제 화면으로 교체.
+ * 메인 셸: M3 NavigationBar 5탭(홈·번호·내역은 6/45, 연금은 연금복권720+). Slice 5b에서 본문을 실제 화면으로 교체.
  * 알림 권한(POST_NOTIFICATIONS, API33+)은 셸 진입 시 요청(원본 home initState 타이밍).
  */
 @Composable
@@ -143,6 +148,7 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
         TabItem(R.string.nav_home, Icons.Rounded.Home),
         TabItem(R.string.nav_numbers, Icons.Rounded.ConfirmationNumber),
         TabItem(R.string.nav_history, Icons.Rounded.History),
+        TabItem(R.string.nav_pension, Icons.Rounded.Savings),
         TabItem(R.string.nav_settings, Icons.Rounded.Settings),
     )
     val pagerState = rememberPagerState(pageCount = { tabs.size })
@@ -154,7 +160,8 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
         pendingTab?.collect { tab ->
             val page = when (tab) {
                 Notifications.TAB_HISTORY -> 2
-                Notifications.TAB_SETTINGS -> 3
+                Notifications.TAB_PENSION -> PAGE_PENSION
+                Notifications.TAB_SETTINGS -> PAGE_SETTINGS
                 "deposit" -> {
                     showDepositScreen = true
                     null
@@ -200,6 +207,11 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
                 )
                 1 -> NumberScreen(modifier = screenModifier)
                 2 -> HistoryScreen(modifier = screenModifier)
+                PAGE_PENSION -> PensionScreen(
+                    modifier = screenModifier,
+                    onNavigateToSettings = { scope.launch { pagerState.animateScrollToPage(PAGE_SETTINGS) } },
+                    onNavigateToDeposit = { showDepositScreen = true },
+                )
                 else -> SettingsScreen(
                     modifier = screenModifier,
                     onNavigateToNumbers = { scope.launch { pagerState.animateScrollToPage(1) } },
@@ -221,7 +233,7 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
                 onBack = { showDepositScreen = false },
                 onNavigateToSettings = {
                     showDepositScreen = false
-                    scope.launch { pagerState.animateScrollToPage(3) }
+                    scope.launch { pagerState.animateScrollToPage(PAGE_SETTINGS) }
                 },
             )
         }

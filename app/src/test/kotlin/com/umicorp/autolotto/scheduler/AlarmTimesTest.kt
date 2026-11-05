@@ -89,4 +89,20 @@ class AlarmTimesTest {
         val now = kst(2026, 7, 4, 21, 0)
         assertEquals(millis(now), AlarmTimes.nextSaturday21Millis(now))
     }
+
+    // ---------- 연금복권 결과확인 (목 21:00) ----------
+
+    @Test
+    fun `thursday result slot is later the same day before 21 and next week after`() {
+        val before = kst(2026, 11, 5, 20, 59)
+        assertEquals(DayOfWeek.THURSDAY, before.dayOfWeek)
+        assertEquals(millis(kst(2026, 11, 5, 21, 0)), AlarmTimes.nextThursday21Millis(before))
+        assertEquals(millis(kst(2026, 11, 12, 21, 0)), AlarmTimes.nextThursday21Millis(kst(2026, 11, 5, 21, 1)))
+    }
+
+    @Test
+    fun `thursday result slot from sunday does not go backwards`() {
+        val sunday = kst(2026, 11, 8, 10, 0)
+        assertEquals(millis(kst(2026, 11, 12, 21, 0)), AlarmTimes.nextThursday21Millis(sunday))
+    }
 }

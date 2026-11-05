@@ -32,6 +32,20 @@ class CheckResultReceiver : BroadcastReceiver() {
     }
 }
 
+/** 연금복권 자동구매 알람(1003) → PensionAutoPurchaseWorker enqueue. */
+class PensionAutoPurchaseReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        enqueueExpedited<PensionAutoPurchaseWorker>(context, "pension_auto_purchase")
+    }
+}
+
+/** 연금복권 결과확인 알람(1004) → PensionCheckResultWorker enqueue. */
+class PensionCheckResultReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        enqueueExpedited<PensionCheckResultWorker>(context, "pension_check_result")
+    }
+}
+
 /**
  * 부팅 완료 / 앱 업데이트(APK 교체) → 알람 일괄 복원.
  *

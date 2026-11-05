@@ -5,15 +5,25 @@ import android.content.Context
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.umicorp.autolotto.data.FallbackPolicy
+import com.umicorp.autolotto.data.NumberConfig720
 import com.umicorp.autolotto.data.SecureStore
+import com.umicorp.autolotto.data.Slot720
+import com.umicorp.autolotto.data.Ticket720
 import com.umicorp.autolotto.dhlottery.AuthService
 import com.umicorp.autolotto.dhlottery.DepositService
 import com.umicorp.autolotto.dhlottery.DhlotteryException
+import com.umicorp.autolotto.dhlottery.DhlotteryPensionGateway
 import com.umicorp.autolotto.dhlottery.DhlotterySession
 import com.umicorp.autolotto.dhlottery.HistoryService
+import com.umicorp.autolotto.dhlottery.HistoryService720
+import com.umicorp.autolotto.dhlottery.PensionOrder
+import com.umicorp.autolotto.dhlottery.PensionOutcome
+import com.umicorp.autolotto.dhlottery.PensionPurchaseManager
 import com.umicorp.autolotto.dhlottery.PurchaseResult
 import com.umicorp.autolotto.dhlottery.PurchaseService
 import com.umicorp.autolotto.dhlottery.ResultService
+import com.umicorp.autolotto.dhlottery.ResultService720
 import com.umicorp.autolotto.scheduler.AlarmScheduler
 import com.umicorp.autolotto.scheduler.BalanceAlert
 import com.umicorp.autolotto.scheduler.PurchaseLock
@@ -24,6 +34,7 @@ import com.umicorp.autolotto.ui.vm.DepositViewModel
 import com.umicorp.autolotto.ui.vm.HistoryViewModel
 import com.umicorp.autolotto.ui.vm.HomeViewModel
 import com.umicorp.autolotto.ui.vm.NumberViewModel
+import com.umicorp.autolotto.ui.vm.PensionViewModel
 import com.umicorp.autolotto.ui.vm.SettingsViewModel
 import com.umicorp.autolotto.util.OnceGate
 import kotlinx.coroutines.CancellationException
@@ -64,6 +75,9 @@ class AppContainer(context: Context) {
     val resultService = ResultService()            // 로그인 불필요 — 자체 세션
     val historyService = HistoryService(session)   // 로그인된 공유 세션 차용
     val depositService = DepositService(session)   // 예치금 가상계좌 충전 서비스
+    val resultService720 = ResultService720()      // 로그인 불필요 — 자체 세션
+    val historyService720 = HistoryService720(session, resultService720)
+    private val pensionManager = PensionPurchaseManager(store, PurchaseLock.mutex)
 
     // === 공유 반응형 상태 (원본 전역 프로바이더와 1:1) ===
     private val _isLoggedIn = MutableStateFlow(false)
@@ -102,6 +116,32 @@ class AppContainer(context: Context) {
     /** 마지막 구매 회차(멱등 가드) — 즉시 구매 CTA 모드(첫/추가) 분기의 단일 출처. */
     private val _lastPurchasedRound = MutableStateFlow(0)
     val lastPurchasedRound: StateFlow<Int> = _lastPurchasedRound.asStateFlow()
+
+    // === 연금복권720+ (6/45와 독립: 설정·회차 가드·알람을 따로 둔다) ===
+    private val _pensionConfig = MutableStateFlow(NumberConfig720.empty())
+    val pensionConfig: StateFlow<NumberConfig720> = _pensionConfig.asStateFlow()
+
+    /** 저장본을 읽기 전에 빈 설정으로 덮어쓰지 못하게 막는 표식. */
+    private val _pensionConfigLoaded = MutableStateFlow(false)
+    val pensionConfigLoaded: StateFlow<Boolean> = _pensionConfigLoaded.asStateFlow()
+
+    private val _pensionAutoEnabled = MutableStateFlow(false)
+    val pensionAutoEnabled: StateFlow<Boolean> = _pensionAutoEnabled.asStateFlow()
+
+    private val _pensionAutoDay = MutableStateFlow(5)
+    val pensionAutoDay: StateFlow<Int> = _pensionAutoDay.asStateFlow()
+
+    private val _pensionAutoHour = MutableStateFlow(9)
+    val pensionAutoHour: StateFlow<Int> = _pensionAutoHour.asStateFlow()
+
+    private val _pensionAutoMinute = MutableStateFlow(0)
+    val pensionAutoMinute: StateFlow<Int> = _pensionAutoMinute.asStateFlow()
+
+    /** 현재 계정이 마지막으로 산 연금복권 회차 — 첫 구매/추가 구매 분기의 단일 출처. */
+    private val _pensionPurchasedRound = MutableStateFlow(0)
+    val pensionPurchasedRound: StateFlow<Int> = _pensionPurchasedRound.asStateFlow()
+
+    private val pensionConfigMutex = Mutex()
 
     // === 인앱 업데이트 (사이드로드 배포) ===
     private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
@@ -142,6 +182,12 @@ class AppContainer(context: Context) {
         val language = store.getLanguage()
         val userId = store.getCredentials().userId
         val lastRound = store.getLastPurchasedRound()
+        val pensionConfig = NumberConfig720.fromJson(store.getPensionNumberConfig()) ?: NumberConfig720.empty()
+        val pensionAutoEnabled = store.getPensionAutoEnabled()
+        val pensionDay = store.getPensionAutoDay()
+        val pensionHour = store.getPensionAutoHour()
+        val pensionMinute = store.getPensionAutoMinute()
+        val pensionRound = pensionManager.purchasedRound(userId)
 
         _autoEnabled.value = autoEnabled
         _autoGames.value = autoGames
@@ -153,6 +199,13 @@ class AppContainer(context: Context) {
         _language.value = language
         _loggedInUserId.value = userId
         _lastPurchasedRound.value = lastRound
+        _pensionConfig.value = pensionConfig
+        _pensionConfigLoaded.value = true
+        _pensionAutoEnabled.value = pensionAutoEnabled
+        _pensionAutoDay.value = pensionDay
+        _pensionAutoHour.value = pensionHour
+        _pensionAutoMinute.value = pensionMinute
+        _pensionPurchasedRound.value = pensionRound
         // 앱 실행마다 알람 재무장(자동구매 활성 시). 업데이트·강제종료·OEM 정리로 소실된 알람 복구 — 멱등.
         // 별도 runCatching: 알람 재무장 실패가 설정 하이드레이션 실패로 위장하지 않게.
         runCatching { scheduler.rescheduleAll() }
@@ -249,6 +302,7 @@ class AppContainer(context: Context) {
                 store.setLastPurchasedRound(0)
                 _lastPurchasedRound.value = 0
             }
+            _pensionPurchasedRound.value = pensionManager.purchasedRound(id)
         }
         _isLoggedIn.value = true
         _loggedInUserId.value = id
@@ -263,6 +317,8 @@ class AppContainer(context: Context) {
         // 자격증명 없는 자동구매는 매주 조용히 무동작(+다른 계정 재로그인 시 이전 설정으로 재개 위험)
         // → 로그아웃과 함께 해제·알람 취소. 비로그인 상태에선 스위치가 잠겨 사용자가 끌 수도 없다.
         if (_autoEnabled.value) setAutoEnabled(false)
+        if (_pensionAutoEnabled.value) setPensionAutoEnabled(false)
+        _pensionPurchasedRound.value = 0
         _isLoggedIn.value = false
         _balance.value = 0
         _loggedInUserId.value = null
@@ -354,7 +410,7 @@ class AppContainer(context: Context) {
             scheduler.scheduleAutoPurchase()
             scheduler.scheduleCheckResult()
         } else {
-            scheduler.cancelAll()
+            scheduler.cancelLotto()   // 연금복권 자동구매는 계속 돌아야 한다.
         }
     }
 
@@ -418,6 +474,79 @@ class AppContainer(context: Context) {
         store.setGamesConfig(count, arr.toString())
     }
 
+    // === 연금복권720+ ===
+
+    /** 슬롯·정책 저장. commit이 성공했을 때만 화면 상태를 바꾼다. 저장은 구매 승인이 아니다. */
+    suspend fun savePensionConfig(slots: List<Slot720>, fallback: FallbackPolicy, setMode: Boolean): Boolean =
+        pensionConfigMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val next = NumberConfig720(
+                    slots = slots,
+                    fallback = fallback,
+                    schemaVersion = NumberConfig720.CURRENT_SCHEMA,
+                    revision = _pensionConfig.value.revision + 1,
+                    setMode = setMode,
+                )
+                val ok = store.setPensionNumberConfig(next.toJson())
+                if (ok) _pensionConfig.value = next
+                ok
+            }
+        }
+
+    /**
+     * 연금복권 즉시 구매. 안전 판단은 [PensionPurchaseManager]가 하고 여기서는 화면 상태만 맞춘다.
+     * 재구매 방지 기록을 저장하지 못했으면 예약 구매가 같은 회차를 또 살 수 있어 자동구매를 끈다.
+     */
+    suspend fun buyPension(order: PensionOrder, expectedRound: Int): PensionOutcome = withContext(Dispatchers.IO) {
+        val gateway = DhlotteryPensionGateway(resultService720)
+        val outcome = pensionManager.purchase(gateway, order, expectedRound)
+        refreshPensionPurchasedRound()
+        if (outcome is PensionOutcome.RecordFailed) runCatching { setPensionAutoEnabled(false) }
+        if (outcome is PensionOutcome.Purchased || outcome is PensionOutcome.RecordFailed) {
+            runCatching {
+                val b = gateway.balance()
+                _balance.value = b
+                BalanceAlert.checkAndNotify(appContext, b, _balanceAlertEnabled.value, _balanceAlertThreshold.value)
+            }
+        }
+        outcome
+    }
+
+    /** 내역 조회 결과로 결과 불명 구매를 해소한다. [owner]는 그 목록을 조회한 계정. */
+    suspend fun reconcilePension(tickets: List<Ticket720>, owner: String?) = withContext(Dispatchers.IO) {
+        pensionManager.reconcile(tickets, owner)
+        refreshPensionPurchasedRound()
+    }
+
+    suspend fun refreshPensionPurchasedRound() = withContext(Dispatchers.IO) {
+        _pensionPurchasedRound.value = pensionManager.purchasedRound(store.pensionUserId())
+    }
+
+    suspend fun setPensionAutoEnabled(v: Boolean) = withContext(Dispatchers.IO) {
+        _pensionAutoEnabled.value = v
+        store.setPensionAutoEnabled(v)
+        if (v) {
+            scheduler.schedulePensionAutoPurchase()
+            scheduler.schedulePensionCheckResult()
+        } else {
+            scheduler.cancelPension()
+        }
+    }
+
+    suspend fun setPensionAutoDay(day: Int) = withContext(Dispatchers.IO) {
+        _pensionAutoDay.value = day
+        store.setPensionAutoDay(day)              // 스토어 먼저 — 스케줄러가 스토어를 다시 읽는다
+        if (_pensionAutoEnabled.value) scheduler.schedulePensionAutoPurchase()
+    }
+
+    suspend fun setPensionAutoTime(hour: Int, minute: Int) = withContext(Dispatchers.IO) {
+        _pensionAutoHour.value = hour
+        _pensionAutoMinute.value = minute
+        store.setPensionAutoHour(hour)
+        store.setPensionAutoMinute(minute)
+        if (_pensionAutoEnabled.value) scheduler.schedulePensionAutoPurchase()
+    }
+
     // === 데이터 초기화 (원본 설정 화면 `_showResetDialog`) ===
     suspend fun resetAll() = withContext(Dispatchers.IO) {
         store.clearAll()
@@ -433,6 +562,12 @@ class AppContainer(context: Context) {
         _balanceAlertEnabled.value = false
         _balanceAlertThreshold.value = 5000
         _loggedInUserId.value = null
+        _pensionConfig.value = NumberConfig720.empty()
+        _pensionAutoEnabled.value = false
+        _pensionAutoDay.value = 5
+        _pensionAutoHour.value = 9
+        _pensionAutoMinute.value = 0
+        _pensionPurchasedRound.value = 0
     }
 
     /** 화면별 ViewModel 팩토리(컴포지션 루트가 컨테이너 주입). */
@@ -442,6 +577,7 @@ class AppContainer(context: Context) {
         initializer { HistoryViewModel(this@AppContainer) }
         initializer { SettingsViewModel(this@AppContainer) }
         initializer { DepositViewModel(this@AppContainer) }
+        initializer { PensionViewModel(this@AppContainer) }
     }
 }
 

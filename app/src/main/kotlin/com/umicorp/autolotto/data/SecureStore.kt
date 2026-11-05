@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.umicorp.autolotto.dhlottery.PensionStateStore
 
 /**
  * 보안저장 키 문자열 — Flutter `SecureStorageService`와 1:1.
@@ -29,6 +30,17 @@ object SecureKeys {
     /** 네이티브 전용 — 회차 가드의 계정 스코프(구매한 계정 ID). ALL(이관 목록) 미포함. */
     const val LAST_PURCHASE_OWNER = "last_purchase_owner"
 
+    // 연금복권720+ — 6/45 설정과 섞이지 않게 키를 분리한다. Flutter 시절에 없던 값이라 ALL 미포함.
+    const val PENSION_NUMBER_CONFIG = "pension_number_config"
+    const val PENSION_AUTO_ENABLED = "pension_auto_enabled"
+    const val PENSION_AUTO_DAY = "pension_auto_day"
+    const val PENSION_AUTO_HOUR = "pension_auto_hour"
+    const val PENSION_AUTO_MINUTE = "pension_auto_minute"
+    const val PENSION_LAST_ROUND = "pension_last_round"
+    const val PENSION_LAST_OWNER = "pension_last_owner"
+    const val PENSION_PENDING = "pension_pending_purchase"
+    const val PENSION_LEDGER = "pension_spend_ledger"
+
     /** 마이그레이션·일괄 처리용 전체 키 목록. */
     val ALL = listOf(
         USER_ID, PASSWORD, AUTO_ENABLED, AUTO_GAMES, MANUAL_NUMBERS,
@@ -51,7 +63,7 @@ object SecureKeys {
  *
  * 백그라운드 리시버도 같은 `Context`로 인스턴스를 만들어 직접 읽는다(원본의 백그라운드 isolate 직접읽기 패턴 유지).
  */
-class SecureStore(context: Context) {
+class SecureStore(context: Context) : PensionStateStore {
 
     private val appContext = context.applicationContext
 
@@ -234,6 +246,54 @@ class SecureStore(context: Context) {
 
     fun getLastPurchaseOwner(): String? = read(SecureKeys.LAST_PURCHASE_OWNER)
 
+    // === 연금복권720+ ===
+
+    fun getPensionNumberConfig(): String? = read(SecureKeys.PENSION_NUMBER_CONFIG)
+
+    /** @return commit 성공 여부 — 호출자가 성공했을 때만 화면 상태를 바꾼다. */
+    fun setPensionNumberConfig(json: String): Boolean = commitString(SecureKeys.PENSION_NUMBER_CONFIG, json)
+
+    fun setPensionAutoEnabled(enabled: Boolean) = putString(SecureKeys.PENSION_AUTO_ENABLED, enabled.toString())
+
+    fun getPensionAutoEnabled(): Boolean = read(SecureKeys.PENSION_AUTO_ENABLED) == "true"
+
+    fun setPensionAutoDay(day: Int) = putString(SecureKeys.PENSION_AUTO_DAY, day.toString())
+
+    /** 기본 금요일 — 새 회차 판매 직후 구매해 목요일 마감을 놓치지 않는다. */
+    fun getPensionAutoDay(): Int = read(SecureKeys.PENSION_AUTO_DAY)?.toIntOrNull() ?: 5
+
+    fun setPensionAutoHour(hour: Int) = putString(SecureKeys.PENSION_AUTO_HOUR, hour.toString())
+
+    fun getPensionAutoHour(): Int = read(SecureKeys.PENSION_AUTO_HOUR)?.toIntOrNull() ?: 9
+
+    fun setPensionAutoMinute(minute: Int) = putString(SecureKeys.PENSION_AUTO_MINUTE, minute.toString())
+
+    fun getPensionAutoMinute(): Int = read(SecureKeys.PENSION_AUTO_MINUTE)?.toIntOrNull() ?: 0
+
+    override fun pensionUserId(): String? = read(SecureKeys.USER_ID)
+
+    override fun pensionPassword(): String? = read(SecureKeys.PASSWORD)
+
+    override fun getPensionLastRound(): Int = read(SecureKeys.PENSION_LAST_ROUND)?.toIntOrNull() ?: 0
+
+    override fun getPensionLastOwner(): String? = read(SecureKeys.PENSION_LAST_OWNER)
+
+    /** 회차와 소유 계정을 한 번에 기록한다 — 둘이 어긋나면 다른 계정의 가드로 오판한다. */
+    override fun setPensionLastPurchase(round: Int, owner: String): Boolean = prefs.edit()
+        .putString(SecureKeys.PENSION_LAST_ROUND, round.toString())
+        .putString(SecureKeys.PENSION_LAST_OWNER, owner)
+        .commit()
+
+    override fun getPensionPending(): String? = read(SecureKeys.PENSION_PENDING)
+
+    override fun setPensionPending(json: String): Boolean = commitString(SecureKeys.PENSION_PENDING, json)
+
+    override fun clearPensionPending(): Boolean = prefs.edit().remove(SecureKeys.PENSION_PENDING).commit()
+
+    override fun getPensionLedger(): String? = read(SecureKeys.PENSION_LEDGER)
+
+    override fun setPensionLedger(json: String): Boolean = commitString(SecureKeys.PENSION_LEDGER, json)
+
     // === 전체 초기화 ===
 
     fun clearAll() {
@@ -244,6 +304,8 @@ class SecureStore(context: Context) {
     private fun putString(key: String, value: String) {
         prefs.edit().putString(key, value).commit()
     }
+
+    private fun commitString(key: String, value: String): Boolean = prefs.edit().putString(key, value).commit()
 
     /** Flutter의 record `({String? userId, String? password})` 대응. */
     data class Credentials(val userId: String?, val password: String?)
