@@ -51,9 +51,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -160,15 +157,26 @@ internal data class PensionActions(
     val onLoadAllHistory: () -> Unit = {},
     val onNavigateToSettings: () -> Unit = {},
     val onNavigateToDeposit: () -> Unit = {},
+    val onNavigateToNumbers: () -> Unit = {},
+    val onNavigateToHistory: () -> Unit = {},
 )
 
-/** 연금복권720+ 탭. 안전 판단은 [com.umicorp.autolotto.dhlottery.PensionPurchaseManager]가 하고 여기서는 표시만 한다. */
+/** 연금 화면은 로또와 같은 홈·번호·내역 세 장으로 나뉜다. 위쪽 복권 전환에서 연금을 고르면 각 탭에 들어간다. */
+internal enum class PensionPage { HOME, NUMBERS, HISTORY }
+
+internal class PensionUi(val state: PensionUiState, val buyState: PensionBuyState, val actions: PensionActions)
+
+/**
+ * 연금 뷰모델 값을 한 번만 모아 세 장이 함께 쓴다. 안전 판단은
+ * [com.umicorp.autolotto.dhlottery.PensionPurchaseManager]가 하고 화면은 표시만 한다.
+ */
 @Composable
-fun PensionScreen(
-    modifier: Modifier = Modifier,
+internal fun rememberPensionUi(
     onNavigateToSettings: () -> Unit,
     onNavigateToDeposit: () -> Unit,
-) {
+    onNavigateToNumbers: () -> Unit,
+    onNavigateToHistory: () -> Unit,
+): PensionUi {
     val vm: PensionViewModel = appViewModel()
     val context = LocalContext.current
     val isLoggedIn by vm.isLoggedIn.collectAsState()
@@ -218,7 +226,7 @@ fun PensionScreen(
         }
     }
 
-    PensionContent(
+    return PensionUi(
         state = PensionUiState(
             isLoggedIn, balance, config, configLoaded, round, saleOpen, purchasedRound, winning, winningLoading,
             autoEnabled, autoDay, autoHour, autoMinute, tickets, winningByRound, historyLoading, historyFailed,
@@ -247,27 +255,31 @@ fun PensionScreen(
             onLoadAllHistory = vm::loadAllHistory,
             onNavigateToSettings = onNavigateToSettings,
             onNavigateToDeposit = onNavigateToDeposit,
+            onNavigateToNumbers = onNavigateToNumbers,
+            onNavigateToHistory = onNavigateToHistory,
         ),
-        modifier = modifier,
     )
 }
 
+/** 연금 한 장. 구매 대화상자와 저장 실패 안내는 구매가 일어나는 번호 장에서만 띄운다(세 장이 함께 떠 있어도 한 번만). */
 @Composable
-internal fun PensionContent(
+internal fun PensionPageContent(
+    page: PensionPage,
     state: PensionUiState,
     buyState: PensionBuyState,
     actions: PensionActions,
     modifier: Modifier = Modifier,
 ) {
-    var showHistory by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
 
-    LaunchedEffect(state.saveFailed) {
-        if (state.saveFailed) {
-            actions.onConsumeSaveFailed()
-            snackbar.showSnackbar(resources.getString(R.string.pensionSaveFailed))
+    if (page == PensionPage.NUMBERS) {
+        LaunchedEffect(state.saveFailed) {
+            if (state.saveFailed) {
+                actions.onConsumeSaveFailed()
+                snackbar.showSnackbar(resources.getString(R.string.pensionSaveFailed))
+            }
         }
     }
 
@@ -277,10 +289,21 @@ internal fun PensionContent(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.pensionTitle), fontWeight = FontWeight.ExtraBold) },
+                title = {
+                    Text(
+                        stringResource(
+                            when (page) {
+                                PensionPage.HOME -> R.string.pensionTitle
+                                PensionPage.NUMBERS -> R.string.numberSetupTitle
+                                PensionPage.HISTORY -> R.string.historyTitle
+                            },
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
                 actions = {
-                    if (showHistory && state.isLoggedIn) {
+                    if (page == PensionPage.HISTORY && state.isLoggedIn) {
                         IconButton(
                             onClick = actions.onRefreshHistory,
                             enabled = !state.historyLoading,
@@ -302,53 +325,73 @@ internal fun PensionContent(
             Modifier.fillMaxSize().padding(inner),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SingleChoiceSegmentedButtonRow(
-                Modifier.widthIn(max = PENSION_MAX_WIDTH).fillMaxWidth().padding(horizontal = 20.dp),
-            ) {
-                SegmentedButton(
-                    selected = !showHistory,
-                    onClick = { showHistory = false },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    modifier = Modifier.testTag("pension-tab-buy"),
-                ) { Text(stringResource(R.string.pensionTabBuy)) }
-                SegmentedButton(
-                    selected = showHistory,
-                    onClick = { showHistory = true },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    modifier = Modifier.testTag("pension-tab-history"),
-                ) { Text(stringResource(R.string.pensionTabHistory)) }
-            }
-            Spacer(Modifier.height(8.dp))
-            if (showHistory) {
-                PensionHistoryPane(state, actions, onGoBuy = { showHistory = false })
-            } else {
-                PensionBuyPane(
+            when (page) {
+                PensionPage.HOME -> PensionHomePane(state, actions)
+                PensionPage.NUMBERS -> PensionNumbersPane(
                     state = state,
                     actions = actions,
                     onScheduleBlocked = {
                         scope.launch { snackbar.showSnackbar(resources.getString(R.string.pensionScheduleBlocked)) }
                     },
                 )
+                PensionPage.HISTORY -> PensionHistoryPane(state, actions, onGoBuy = actions.onNavigateToNumbers)
             }
         }
     }
 
-    PensionBuyDialogs(
-        state = buyState,
-        actions = actions,
-        onShowHistory = {
-            actions.onDismissBuy()
-            showHistory = true
-        },
-    )
+    if (page == PensionPage.NUMBERS) {
+        PensionBuyDialogs(
+            state = buyState,
+            actions = actions,
+            onShowHistory = {
+                actions.onDismissBuy()
+                actions.onNavigateToHistory()
+            },
+        )
+    }
 }
 
 internal val PENSION_MAX_WIDTH = 720.dp
 
-// ===== 구매 =====
+// ===== 홈 =====
+
+/** 로또 홈과 같은 순서: 당첨번호 → 예치금 → 자동 구매 상태 → 번호 설정으로. */
+@Composable
+private fun PensionHomePane(state: PensionUiState, actions: PensionActions) {
+    Column(
+        Modifier
+            .widthIn(max = PENSION_MAX_WIDTH)
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .testTag("pension-home"),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        WinningCard(state, actions.onRetryWinning)
+        if (state.purchasedRound >= state.upcomingRound) {
+            StatusPill(stringResource(R.string.pensionPurchasedPill), PillTone.Win)
+        }
+        BalanceCard(state.balance, alertEnabled = false, threshold = 0, onNavigateToDeposit = actions.onNavigateToDeposit)
+        AutoStatusCard(
+            state.autoEnabled, state.autoDay, state.autoHour, state.autoMinute,
+            offHint = stringResource(R.string.pensionAutoOffHint),
+        )
+        CtaButton(onClick = actions.onNavigateToNumbers, modifier = Modifier.testTag("pension-home-cta")) {
+            Text(
+                stringResource(R.string.buttonSetupNumbers),
+                color = LocalContentColor.current,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+// ===== 번호·구매 =====
 
 @Composable
-private fun PensionBuyPane(state: PensionUiState, actions: PensionActions, onScheduleBlocked: () -> Unit) {
+private fun PensionNumbersPane(state: PensionUiState, actions: PensionActions, onScheduleBlocked: () -> Unit) {
     Column(
         Modifier
             .widthIn(max = PENSION_MAX_WIDTH)
@@ -358,7 +401,6 @@ private fun PensionBuyPane(state: PensionUiState, actions: PensionActions, onSch
             .testTag("pension-buy"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        WinningCard(state, actions.onRetryWinning)
         GamesCard(state, actions)
         BuyCta(state, actions)
         AutoCard(state, actions, onScheduleBlocked)

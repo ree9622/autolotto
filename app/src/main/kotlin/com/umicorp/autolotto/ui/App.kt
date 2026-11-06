@@ -8,7 +8,10 @@ import android.content.res.Resources
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -22,7 +25,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -35,13 +41,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import com.umicorp.autolotto.ui.theme.MotionSpecs
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
@@ -87,7 +96,9 @@ import com.umicorp.autolotto.ui.screen.DepositScreen
 import com.umicorp.autolotto.ui.screen.HistoryScreen
 import com.umicorp.autolotto.ui.screen.HomeScreen
 import com.umicorp.autolotto.ui.screen.NumberScreen
-import com.umicorp.autolotto.ui.screen.PensionScreen
+import com.umicorp.autolotto.ui.screen.PensionPage
+import com.umicorp.autolotto.ui.screen.PensionPageContent
+import com.umicorp.autolotto.ui.screen.rememberPensionUi
 import com.umicorp.autolotto.ui.screen.SettingsScreen
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -133,34 +144,60 @@ fun AppRoot(pendingTab: MutableStateFlow<String?>? = null) {
 
 internal data class TabItem(val labelRes: Int, val icon: ImageVector)
 
-private const val PAGE_PENSION = 3
-private const val PAGE_SETTINGS = 4
+private const val PAGE_NUMBERS = 1
+private const val PAGE_HISTORY = 2
+private const val PAGE_SETTINGS = 3
+
+/** 홈·번호·내역 탭이 보여 줄 복권. 위쪽 전환으로 고르고, 다음 실행에도 이어지도록 기기에 남긴다. */
+internal enum class Product { LOTTO, PENSION }
+
+private const val UI_PREFS = "ui_prefs"
+private const val KEY_PRODUCT = "product"
 
 /**
- * 메인 셸: M3 NavigationBar 5탭(홈·번호·내역은 6/45, 연금은 연금복권720+). Slice 5b에서 본문을 실제 화면으로 교체.
+ * 메인 셸: 하단 4탭(홈·번호·내역·설정)과 위쪽 복권 전환(로또 6/45 | 연금720+).
+ * 홈·번호·내역은 고른 복권의 화면을 보여 주고, 설정은 공통이라 전환을 숨긴다.
  * 알림 권한(POST_NOTIFICATIONS, API33+)은 셸 진입 시 요청(원본 home initState 타이밍).
  */
 @Composable
 fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
     RequestNotificationPermission()
 
+    val context = LocalContext.current
     val tabs = listOf(
         TabItem(R.string.nav_home, Icons.Rounded.Home),
         TabItem(R.string.nav_numbers, Icons.Rounded.ConfirmationNumber),
         TabItem(R.string.nav_history, Icons.Rounded.History),
-        TabItem(R.string.nav_pension, Icons.Rounded.Savings),
         TabItem(R.string.nav_settings, Icons.Rounded.Settings),
     )
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
     var showDepositScreen by rememberSaveable { mutableStateOf(false) }
+    var product by rememberSaveable {
+        val saved = context.getSharedPreferences(UI_PREFS, android.content.Context.MODE_PRIVATE)
+            .getString(KEY_PRODUCT, null)
+        mutableStateOf(Product.entries.firstOrNull { it.name == saved } ?: Product.LOTTO)
+    }
+    val selectProduct: (Product) -> Unit = { next ->
+        product = next
+        context.getSharedPreferences(UI_PREFS, android.content.Context.MODE_PRIVATE)
+            .edit().putString(KEY_PRODUCT, next.name).apply()
+    }
+    val goTo: (Int) -> Unit = { page -> scope.launch { pagerState.animateScrollToPage(page) } }
 
     // 알림 탭 진입: 지정 탭으로 즉시 이동 후 소비 — cold(스플래시 뒤)/warm(onNewIntent) 공용.
+    // 6/45 구매·결과 알림은 로또 내역, 연금 구매·결과 알림은 연금 내역으로 간다.
     LaunchedEffect(pendingTab) {
         pendingTab?.collect { tab ->
             val page = when (tab) {
-                Notifications.TAB_HISTORY -> 2
-                Notifications.TAB_PENSION -> PAGE_PENSION
+                Notifications.TAB_HISTORY -> {
+                    selectProduct(Product.LOTTO)
+                    PAGE_HISTORY
+                }
+                Notifications.TAB_PENSION -> {
+                    selectProduct(Product.PENSION)
+                    PAGE_HISTORY
+                }
                 Notifications.TAB_SETTINGS -> PAGE_SETTINGS
                 "deposit" -> {
                     showDepositScreen = true
@@ -176,45 +213,75 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
     }
 
     // 사이드로드 인앱 업데이트: 셸 진입 시 1회 확인 → 새 버전이면 다이얼로그.
-    val container = LocalContext.current.appContainer
+    val container = context.appContainer
     val updateInfo by container.updateInfo.collectAsState()
     LaunchedEffect(Unit) { runCatching { container.checkForUpdate() } }
 
+    // 연금 세 장이 같은 상태를 쓰도록 한 번만 모은다(탭은 모두 살아 있어 이전과 비용이 같다).
+    val pension = rememberPensionUi(
+        onNavigateToSettings = { goTo(PAGE_SETTINGS) },
+        onNavigateToDeposit = { showDepositScreen = true },
+        onNavigateToNumbers = { goTo(PAGE_NUMBERS) },
+        onNavigateToHistory = { goTo(PAGE_HISTORY) },
+    )
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            AnimatedVisibility(
+                visible = pagerState.currentPage != PAGE_SETTINGS,
+                enter = expandVertically(),
+                exit = shrinkVertically(),
+            ) {
+                ProductSwitcher(product, selectProduct)
+            }
+        },
         bottomBar = {
             FloatingPillNav(
                 tabs = tabs,
                 selectedIndex = pagerState.currentPage,
-                onSelect = { i -> scope.launch { pagerState.animateScrollToPage(i) } },
+                onSelect = { i -> goTo(i) },
             )
         },
     ) { padding ->
-        // 원본 PageView와 동치: 4탭 모두 keep-alive + 스와이프. 하단 네비 높이만 예약(상단 인셋은 각 화면 TopAppBar가 처리).
+        // 원본 PageView와 동치: 모든 탭 keep-alive + 스와이프. 위쪽 전환 아래부터 그리고, 쓴 인셋은 소비해
+        // 각 화면 TopAppBar가 상태 표시줄 여백을 한 번 더 넣지 않게 한다.
         val screenModifier = Modifier
             .fillMaxSize()
-            .padding(bottom = padding.calculateBottomPadding())
+            .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
+            .consumeWindowInsets(padding)
         HorizontalPager(
             state = pagerState,
             beyondViewportPageCount = tabs.size,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
-            when (page) {
-                0 -> HomeScreen(
+            val pensionPage = when (page) {
+                0 -> PensionPage.HOME
+                PAGE_NUMBERS -> PensionPage.NUMBERS
+                PAGE_HISTORY -> PensionPage.HISTORY
+                else -> null
+            }
+            when {
+                pensionPage != null && product == Product.PENSION -> PensionPageContent(
+                    page = pensionPage,
+                    state = pension.state,
+                    buyState = pension.buyState,
+                    actions = pension.actions,
                     modifier = screenModifier,
-                    onNavigateToNumbers = { scope.launch { pagerState.animateScrollToPage(1) } },
+                )
+                page == 0 -> HomeScreen(
+                    modifier = screenModifier,
+                    onNavigateToNumbers = { goTo(PAGE_NUMBERS) },
                     onNavigateToDeposit = { showDepositScreen = true },
                 )
-                1 -> NumberScreen(modifier = screenModifier)
-                2 -> HistoryScreen(modifier = screenModifier)
-                PAGE_PENSION -> PensionScreen(
-                    modifier = screenModifier,
-                    onNavigateToSettings = { scope.launch { pagerState.animateScrollToPage(PAGE_SETTINGS) } },
-                    onNavigateToDeposit = { showDepositScreen = true },
-                )
+                page == PAGE_NUMBERS -> NumberScreen(modifier = screenModifier)
+                page == PAGE_HISTORY -> HistoryScreen(modifier = screenModifier)
                 else -> SettingsScreen(
                     modifier = screenModifier,
-                    onNavigateToNumbers = { scope.launch { pagerState.animateScrollToPage(1) } },
+                    onNavigateToNumbers = {
+                        selectProduct(Product.LOTTO)
+                        goTo(PAGE_NUMBERS)
+                    },
                     onNavigateToDeposit = { showDepositScreen = true },
                 )
             }
@@ -240,6 +307,27 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
     }
 
     updateInfo?.let { UpdateDialog(it) }
+}
+
+/** 위쪽 복권 전환. 고른 복권에 따라 홈·번호·내역 탭의 화면이 바뀐다. */
+@Composable
+internal fun ProductSwitcher(selected: Product, onSelect: (Product) -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp).padding(top = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 480.dp).fillMaxWidth()) {
+            listOf(Product.LOTTO to R.string.productLotto, Product.PENSION to R.string.productPension)
+                .forEachIndexed { index, (value, label) ->
+                    SegmentedButton(
+                        selected = selected == value,
+                        onClick = { onSelect(value) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                        modifier = Modifier.testTag("product-${value.name.lowercase()}"),
+                    ) { Text(stringResource(label), fontWeight = FontWeight.Bold) }
+                }
+        }
+    }
 }
 
 /**

@@ -273,7 +273,7 @@ private fun WinningNumbers(winning: com.umicorp.autolotto.data.WinningResult?, l
 }
 
 @Composable
-private fun BalanceCard(
+internal fun BalanceCard(
     balance: Int,
     alertEnabled: Boolean,
     threshold: Int,
@@ -334,12 +334,13 @@ private fun BalanceCard(
     }
 }
 
+/** [offHint]는 꺼져 있을 때 켜는 곳 안내. 6/45는 설정, 연금은 번호 탭에서 켠다. */
 @Composable
-private fun AutoStatusCard(autoEnabled: Boolean, day: Int, hour: Int, minute: Int) {
+internal fun AutoStatusCard(autoEnabled: Boolean, day: Int, hour: Int, minute: Int, offHint: String? = null) {
     val subtitle = if (autoEnabled) stringResource(
         R.string.autoPurchaseSchedule,
         formatPurchaseSchedule(day, hour, minute),
-    ) else stringResource(R.string.enableInSettings)
+    ) else offHint ?: stringResource(R.string.enableInSettings)
     val accent = if (autoEnabled) LgGreen else LgMuted
     TonalCard(accent = accent) {
         Row(verticalAlignment = Alignment.CenterVertically) {

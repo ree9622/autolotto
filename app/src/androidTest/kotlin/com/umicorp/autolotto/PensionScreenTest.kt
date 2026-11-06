@@ -38,7 +38,11 @@ import com.umicorp.autolotto.dhlottery.PartialFailure
 import com.umicorp.autolotto.dhlottery.PurchaseResult720
 import com.umicorp.autolotto.ui.LocalizedApp
 import com.umicorp.autolotto.ui.screen.PensionActions
-import com.umicorp.autolotto.ui.screen.PensionContent
+import com.umicorp.autolotto.ui.screen.PensionPage
+import com.umicorp.autolotto.ui.screen.PensionPageContent
+import com.umicorp.autolotto.ui.Product
+import com.umicorp.autolotto.ui.ProductSwitcher
+import androidx.compose.runtime.mutableStateOf
 import com.umicorp.autolotto.ui.screen.PensionUiState
 import com.umicorp.autolotto.ui.theme.AutoLottoTheme
 import com.umicorp.autolotto.ui.vm.PensionBuyState
@@ -79,16 +83,26 @@ class PensionScreenTest {
         size: DpSize = DpSize(380.dp, 820.dp),
         fontScale: Float = 1f,
         dark: Boolean = false,
+        page: PensionPage = PensionPage.NUMBERS,
     ) {
+        pageState.value = page
         compose.setContent {
             DeviceConfigurationOverride(
                 DeviceConfigurationOverride.ForcedSize(size).then(DeviceConfigurationOverride.FontScale(fontScale)),
             ) {
                 AutoLottoTheme(darkTheme = dark) {
-                    LocalizedApp("ko") { PensionContent(value, buy, actions) }
+                    LocalizedApp("ko") { PensionPageContent(pageState.value, value, buy, actions) }
                 }
             }
         }
+    }
+
+    /** 탭 전환 대신 같은 상태로 장만 바꾼다(앱에서는 하단 탭이 바꾼다). */
+    private val pageState = mutableStateOf(PensionPage.NUMBERS)
+
+    private fun openPage(page: PensionPage) {
+        compose.runOnIdle { pageState.value = page }
+        compose.waitForIdle()
     }
 
     private fun capture(name: String) {
@@ -105,11 +119,45 @@ class PensionScreenTest {
         compose.onNodeWithTag("pension-history").performScrollToNode(hasText(text))
     }
 
-    @Test fun buyPaneShowsNumbersAmountAndReadsNumberAsOneRow() {
-        show()
+    @Test fun homeShowsWinningStatusAndLeadsToNumbers() {
+        var numbers = 0
+        var deposit = 0
+        show(
+            state.copy(purchasedRound = 341),
+            actions = PensionActions(onNavigateToNumbers = { numbers++ }, onNavigateToDeposit = { deposit++ }),
+            page = PensionPage.HOME,
+        )
+        compose.onNodeWithText("연금복권720+").assertExists()
         compose.onNodeWithContentDescription("3조 604270").assertExists()
         compose.onNodeWithContentDescription("보너스 각 조 111333").assertExists()
         compose.onNodeWithText("다음 추첨: 제 341회 · 2026-11-12(목) 19:05").assertExists()
+        compose.onNodeWithText("이번 회차 구매 완료").assertExists()
+        compose.onNodeWithText("₩10,000").assertExists()
+        compose.onNodeWithText("자동 구매 활성화").performScrollTo().assertExists()
+        capture("home-380")
+        compose.onNodeWithTag("pension-home-cta").performScrollTo().performClick()
+        assertEquals(1, numbers)
+    }
+
+    @Test fun homeAutoOffPointsToNumbersTab() {
+        show(state.copy(autoEnabled = false), page = PensionPage.HOME)
+        compose.onNodeWithText("번호 탭에서 켤 수 있습니다").performScrollTo().assertExists()
+    }
+
+    @Test fun productSwitcherSelectsLottery() {
+        val picked = mutableListOf<Product>()
+        compose.setContent {
+            AutoLottoTheme { LocalizedApp("ko") { ProductSwitcher(Product.LOTTO) { picked += it } } }
+        }
+        compose.onNodeWithText("로또 6/45").assertExists()
+        compose.onNodeWithTag("product-pension").performClick()
+        assertEquals(listOf(Product.PENSION), picked)
+    }
+
+    @Test fun buyPaneShowsNumbersAmountAndReadsNumberAsOneRow() {
+        show()
+        compose.onNodeWithText("번호 설정").assertExists()
+        compose.onNodeWithContentDescription("3조 604270").assertDoesNotExist()   // 당첨번호는 홈에 있다.
         compose.onNodeWithTag("pension-buy-cta").performScrollTo().assertIsEnabled()
         compose.onNodeWithText("3,000원 구매하기").assertExists()
         compose.onNodeWithText("이미 팔린 번호라면").assertExists()
@@ -188,12 +236,16 @@ class PensionScreenTest {
 
     @Test fun resultUnknownOffersHistoryOnlyAndNoRetry() {
         var dismissed = 0
-        show(buy = PensionBuyState.ResultUnknown, actions = PensionActions(onDismissBuy = { dismissed++ }))
+        var history = 0
+        show(
+            buy = PensionBuyState.ResultUnknown,
+            actions = PensionActions(onDismissBuy = { dismissed++ }, onNavigateToHistory = { history++ }),
+        )
         compose.onNodeWithText("다시 시도").assertDoesNotExist()
         capture("unknown-380")
         compose.onNodeWithTag("pension-unknown-history").performClick()
         assertEquals(1, dismissed)
-        compose.onNodeWithTag("pension-history").assertExists()
+        assertEquals(1, history)
     }
 
     @Test fun inProgressCannotBeDismissedByActions() {
@@ -241,7 +293,7 @@ class PensionScreenTest {
                 canLoadMore = true,
             ),
         )
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         capture("history-380")
         scrollHistoryTo("제 341회")
         compose.onNodeWithText("추첨 전").assertExists()
@@ -260,19 +312,20 @@ class PensionScreenTest {
             state.copy(isLoggedIn = false, autoEnabled = false),
             actions = PensionActions(onNavigateToSettings = { settings++ }),
         )
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         compose.onNodeWithText("로그인하면 구매 내역을 볼 수 있습니다.").assertExists()
         compose.onNodeWithText("설정에서 로그인").performClick()
         assertEquals(1, settings)
     }
 
     @Test fun historyEmptyGoesBackToBuy() {
-        show()
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        var numbers = 0
+        show(actions = PensionActions(onNavigateToNumbers = { numbers++ }))
+        openPage(PensionPage.HISTORY)
         scrollHistoryTo("최근 1년 구매 내역이 아직 없습니다.")
         capture("history-empty-380")
         compose.onNodeWithText("번호 고르러 가기").performClick()
-        compose.onNodeWithTag("pension-buy").assertExists()
+        assertEquals(1, numbers)
     }
 
     @Test fun historyFailureOffersRetryAndKeepsTickets() {
@@ -284,7 +337,7 @@ class PensionScreenTest {
             ),
             actions = PensionActions(onRefreshHistory = { retried++ }),
         )
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         compose.onNodeWithText("내역을 불러오지 못했습니다.").assertExists()
         compose.onNodeWithText("다시 시도").performClick()
         assertEquals(1, retried)
@@ -293,7 +346,7 @@ class PensionScreenTest {
 
     @Test fun winningFailureOffersRetry() {
         var retried = 0
-        show(state.copy(winning = null), actions = PensionActions(onRetryWinning = { retried++ }))
+        show(state.copy(winning = null), actions = PensionActions(onRetryWinning = { retried++ }), page = PensionPage.HOME)
         compose.onNodeWithText("당첨번호를 불러오지 못했습니다.").assertExists()
         compose.onNodeWithText("다시 시도").performClick()
         assertEquals(1, retried)
@@ -326,7 +379,7 @@ class PensionScreenTest {
 
     @Test fun historySummaryShowsTotalsAndAnnuitySeparately() {
         show(historyState)
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         compose.onNodeWithText("2026-08-06 ~ 2026-11-06").assertExists()
         inSummary("4,000원")        // 4장 구매
         inSummary("1,000,000원")    // 3등 일시금
@@ -338,7 +391,7 @@ class PensionScreenTest {
 
     @Test fun historyFiltersNarrowRounds() {
         show(historyState)
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         compose.onNodeWithText("3개 회차").assertExists()
         compose.onNodeWithTag("pension-filter-winning").performClick()
         compose.onNodeWithText("1개 회차").assertExists()
@@ -355,7 +408,7 @@ class PensionScreenTest {
         var refresh = 0
         show(historyState, actions = PensionActions(onLoadAllHistory = { all++ }, onRefreshHistory = { refresh++ }))
         compose.onNodeWithTag("pension-history-refresh").assertDoesNotExist()   // 구매 화면에는 없다.
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         compose.onNodeWithTag("pension-history-load-all").performClick()
         compose.onNodeWithTag("pension-history-refresh").performClick()
         assertEquals(1, all)
@@ -364,14 +417,14 @@ class PensionScreenTest {
 
     @Test fun historyLoadingAllShowsProgressAndDisablesButton() {
         show(historyState.copy(historyLoading = true, loadingAll = true, historyProgress = 2))
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         compose.onNodeWithText("전체 내역 불러오는 중 · 2/4 기간 완료").assertExists()
         compose.onNodeWithTag("pension-history-load-all").assertIsNotEnabled()
     }
 
     @Test fun historyWideUsesTwoPanes() {
         show(historyState, size = DpSize(1180.dp, 820.dp))
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         compose.onNodeWithTag("pension-history-wide").assertExists()
         compose.onNodeWithTag("pension-history-summary").assertExists()
         compose.onNodeWithText("제 341회").assertExists()
@@ -387,10 +440,14 @@ class PensionScreenTest {
             size = DpSize(width.dp, height.dp),
             fontScale = fontScale,
             dark = dark,
+            page = PensionPage.HOME,
         )
         compose.onNodeWithContentDescription("3조 604270").assertExists()
+        capture("$name-home")
+        openPage(PensionPage.NUMBERS)
+        compose.onNodeWithTag("pension-buy-cta").assertExists()
         capture(name)
-        compose.onNodeWithTag("pension-tab-history").performClick()
+        openPage(PensionPage.HISTORY)
         capture("$name-history")
         scrollHistoryTo("1등")
         capture("$name-history-card")
