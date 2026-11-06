@@ -8,6 +8,7 @@ import androidx.compose.ui.test.FontScale
 import androidx.compose.ui.test.ForcedSize
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -201,6 +202,21 @@ class PensionScreenTest {
         compose.onNodeWithText("5,000원 구매하기").performScrollTo()
         compose.onNodeWithTag("pension-slot-0").assertDoesNotExist()
         compose.onNodeWithText("이미 팔린 번호라면").assertDoesNotExist()
+        compose.onNodeWithTag("pension-set-preview").performScrollTo().assertExists()
+        compose.onNodeWithText("다섯 장 모두 같은 번호입니다.").assertExists()
+        capture("set-mode-380")
+    }
+
+    @Test fun buyModeSelectorSwitchesBetweenSeparateAndSet() {
+        var savedSet: Boolean? = null
+        show(state, actions = PensionActions(onSaveConfig = { _, _, set -> savedSet = set }))
+        compose.onNodeWithTag("pension-mode-separate").assertIsSelected()
+        compose.onNodeWithText("완전 자동으로 두면 게임마다 다른 번호", substring = true).assertExists()
+        compose.onNodeWithTag("pension-set-preview").assertDoesNotExist()
+        compose.onNodeWithTag("pension-mode-separate").performClick()
+        assertEquals(null, savedSet)
+        compose.onNodeWithTag("pension-mode-set").performClick()
+        assertEquals(true, savedSet)
     }
 
     @Test fun confirmDialogShowsWhatWillBePaidAndPaysOnce() {
