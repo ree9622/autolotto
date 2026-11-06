@@ -75,7 +75,9 @@
 
     <string name="settingsTitle">Settings</string>
     <string name="sectionAccount">Account</string>
-    <string name="sectionAutoPurchase">Auto Purchase</string>
+    <string name="sectionAutoPurchase">Lotto auto purchase</string>
+    <string name="sectionPensionAutoPurchase">Pension lottery auto purchase</string>
+    <string name="hintPensionAutoInNumbers">Turn it on and set the day and time on the pension numbers screen</string>
     <string name="sectionNotifications">Notifications</string>
     <string name="sectionAppInfo">App Info</string>
 

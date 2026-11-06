@@ -118,6 +118,7 @@ import com.umicorp.autolotto.ui.util.localizedDayNames
 import com.umicorp.autolotto.ui.vm.SettingsViewModel
 import com.umicorp.autolotto.ui.vm.SettingsViewModel.LoginState
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.testTag
 
 /**
  * 설정 화면 (원본 settings_screen.dart 1:1).
@@ -131,11 +132,16 @@ import kotlinx.coroutines.launch
  * 권한 섹션(POST_NOTIFICATIONS·정확알람)은 원본엔 없지만 네이티브 백그라운드
  * 신뢰성을 위해 추가(DESIGN §11에서 Slice 5 UI로 보류했던 런타임 권한 유도).
  */
+/** 설정 탭에 보여 줄 연금 자동 구매 상태. day는 1=월 .. 7=일. */
+data class PensionAutoInfo(val enabled: Boolean = false, val day: Int = 1, val hour: Int = 0, val minute: Int = 0)
+
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     onNavigateToNumbers: () -> Unit,
     onNavigateToDeposit: () -> Unit = {},
+    pensionAuto: PensionAutoInfo = PensionAutoInfo(),
+    onNavigateToPensionNumbers: () -> Unit = {},
 ) {
     val vm: SettingsViewModel = appViewModel()
     val resources = LocalResources.current
@@ -341,6 +347,27 @@ fun SettingsScreen(
                         trailingContent = { Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
                 }
+            }
+            Spacer(Modifier.height(24.dp))
+
+            // ===== 연금복권 자동 구매 (설정·켜기는 연금 번호 화면에서) =====
+            SettingsSection(stringResource(R.string.sectionPensionAutoPurchase)) {
+                ListItem(
+                    modifier = Modifier
+                        .clickable { onNavigateToPensionNumbers() }
+                        .testTag("settings-pension-auto"),
+                    colors = transparentListColors(),
+                    leadingContent = { SettingIcon(Icons.Rounded.CalendarToday, LgGold) },
+                    headlineContent = {
+                        Text(
+                            if (pensionAuto.enabled) formatPurchaseSchedule(pensionAuto.day, pensionAuto.hour, pensionAuto.minute)
+                            else stringResource(R.string.autoPurchaseDisabled),
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    supportingContent = { Text(stringResource(R.string.hintPensionAutoInNumbers)) },
+                    trailingContent = { Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                )
             }
             Spacer(Modifier.height(24.dp))
 

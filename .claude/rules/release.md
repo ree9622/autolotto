@@ -17,7 +17,7 @@
 - GitHub 토큰: 로컬 `.env`의 `umicorp` PAT. 토큰을 argv·echo·출력에 절대 노출하지 않는다 —
   `-H @<(printf 'Authorization: Bearer %s\n' "$TOKEN")` 프로세스 치환으로만 전달
 - JDK: `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` (gradlew·apksigner 공통)
-- 커밋/푸시는 사용자가 배포를 요청한 경우에 한함. force-push는 건별 명시 승인 필수
+- **상시 릴리스(2026-11-06 ko 「지시 안해도 항상해」)**: 앱 변경을 `main`에 병합하면 묻지 않고 같은 흐름에서 다음 버전을 릴리스한다(문서·검증 캡처만 바뀐 병합은 제외). force-push는 건별 명시 승인 필수
 
 ## 1. 버전 범프
 
