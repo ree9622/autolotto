@@ -322,8 +322,12 @@
     <string name="pensionHistoryLoading">내역을 불러오는 중입니다</string>
     <string name="pensionHistoryFailed">내역을 불러오지 못했습니다.</string>
     <string name="pensionWonPill">당첨</string>
-    <string name="pensionWinningLine">당첨번호 %1$d조 %2$s · 보너스 %3$s</string>
     <string name="pensionLumpTotal">일시금 합계 %1$s원</string>
+    <string name="pensionSummaryLump">총 당첨금 (일시금)</string>
+    <string name="pensionSummaryAnnuity">연금식 당첨 %1$d건 · 매달 받는 당첨금이라 합계에서 뺐습니다</string>
+    <string name="pensionSummaryScope">불러온 기간 기준 · 3~7등 일시금만 더했으며 세전 금액입니다.</string>
+    <string name="pensionWinningCaption">이 회차 당첨번호</string>
+    <string name="pensionAnnuityCount">연금식 당첨 %1$d건</string>
     <string name="pensionRank1">1등</string>
     <string name="pensionRank2">2등</string>
     <string name="pensionRank3">3등</string>
