@@ -34,6 +34,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -109,7 +111,7 @@ import com.umicorp.autolotto.ui.util.localizedDayNames
 import com.umicorp.autolotto.ui.vm.PensionBuyState
 import com.umicorp.autolotto.ui.vm.PensionRoundGroup
 import com.umicorp.autolotto.ui.vm.PensionViewModel
-import com.umicorp.autolotto.ui.vm.pensionRoundGroups
+import com.umicorp.autolotto.ui.vm.pensionHistoryWindows
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -134,6 +136,11 @@ internal data class PensionUiState(
     val historyFailed: Boolean,
     val canLoadMore: Boolean,
     val saveFailed: Boolean = false,
+    val windowsLoaded: Int = 0,
+    val historyProgress: Int = 0,
+    val loadingAll: Boolean = false,
+    val loadedFrom: java.time.LocalDate? = null,
+    val loadedTo: java.time.LocalDate? = null,
 )
 
 internal data class PensionActions(
@@ -150,6 +157,7 @@ internal data class PensionActions(
     val onSetAutoTime: (Int, Int) -> Boolean = { _, _ -> true },
     val onRefreshHistory: () -> Unit = {},
     val onLoadMoreHistory: () -> Unit = {},
+    val onLoadAllHistory: () -> Unit = {},
     val onNavigateToSettings: () -> Unit = {},
     val onNavigateToDeposit: () -> Unit = {},
 )
@@ -181,6 +189,13 @@ fun PensionScreen(
     val canLoadMore by vm.canLoadMore.collectAsState()
     val saveFailed by vm.saveFailed.collectAsState()
     val buyState by vm.buyState.collectAsState()
+    val windowsLoaded by vm.windowsLoaded.collectAsState()
+    val historyProgress by vm.historyProgress.collectAsState()
+    val loadingAll by vm.loadingAll.collectAsState()
+    val historyToday by vm.historyToday.collectAsState()
+    val loadedRange = historyToday?.takeIf { windowsLoaded > 0 }?.let { today ->
+        pensionHistoryWindows(today)[windowsLoaded - 1].first to today
+    }
 
     // 회차와 판매 시간은 시간이 지나면 바뀐다. 화면이 보이는 동안만 다시 읽고, 결제 직전 검사는 관리자가 또 한다.
     var round by remember { mutableIntStateOf(vm.upcomingRound) }
@@ -207,7 +222,8 @@ fun PensionScreen(
         state = PensionUiState(
             isLoggedIn, balance, config, configLoaded, round, saleOpen, purchasedRound, winning, winningLoading,
             autoEnabled, autoDay, autoHour, autoMinute, tickets, winningByRound, historyLoading, historyFailed,
-            canLoadMore, saveFailed,
+            canLoadMore, saveFailed, windowsLoaded, historyProgress, loadingAll,
+            loadedRange?.first, loadedRange?.second,
         ),
         buyState = buyState,
         actions = PensionActions(
@@ -228,6 +244,7 @@ fun PensionScreen(
             onSetAutoTime = vm::setAutoTime,
             onRefreshHistory = vm::loadHistory,
             onLoadMoreHistory = vm::loadMoreHistory,
+            onLoadAllHistory = vm::loadAllHistory,
             onNavigateToSettings = onNavigateToSettings,
             onNavigateToDeposit = onNavigateToDeposit,
         ),
@@ -262,6 +279,21 @@ internal fun PensionContent(
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.pensionTitle), fontWeight = FontWeight.ExtraBold) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
+                actions = {
+                    if (showHistory && state.isLoggedIn) {
+                        IconButton(
+                            onClick = actions.onRefreshHistory,
+                            enabled = !state.historyLoading,
+                            modifier = Modifier.testTag("pension-history-refresh"),
+                        ) {
+                            Icon(
+                                Icons.Rounded.Refresh,
+                                contentDescription = stringResource(R.string.cdRefresh),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -311,7 +343,7 @@ internal fun PensionContent(
     )
 }
 
-private val PENSION_MAX_WIDTH = 720.dp
+internal val PENSION_MAX_WIDTH = 720.dp
 
 // ===== 구매 =====
 
@@ -927,170 +959,6 @@ private fun SuccessDialog(state: PensionBuyState.Success, onDismiss: () -> Unit)
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.buttonConfirm)) } },
     )
-}
-
-// ===== 내역 =====
-
-@Composable
-private fun PensionHistoryPane(state: PensionUiState, actions: PensionActions, onGoBuy: () -> Unit) {
-    if (!state.isLoggedIn) {
-        PensionEmptyMessage(
-            text = stringResource(R.string.pensionHistoryLogin),
-            action = stringResource(R.string.pensionGoLogin),
-            onAction = actions.onNavigateToSettings,
-        )
-        return
-    }
-    val groups = remember(state.tickets, state.winningByRound) {
-        pensionRoundGroups(state.tickets, state.winningByRound)
-    }
-    PullToRefreshBox(
-        isRefreshing = state.historyLoading,
-        onRefresh = { if (!state.historyLoading) actions.onRefreshHistory() },
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        LazyColumn(
-            Modifier.widthIn(max = PENSION_MAX_WIDTH).fillMaxSize().testTag("pension-history"),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (state.historyFailed) {
-                item(key = "failed") {
-                    SectionCard(contentPadding = PaddingValues(16.dp)) {
-                        Text(stringResource(R.string.pensionHistoryFailed), color = MaterialTheme.colorScheme.error)
-                        TextButton(onClick = actions.onRefreshHistory, enabled = !state.historyLoading) {
-                            Text(stringResource(R.string.pensionRetry))
-                        }
-                    }
-                }
-            }
-            if (groups.isEmpty() && !state.historyFailed) {
-                item(key = "empty") {
-                    if (state.historyLoading) {
-                        Text(stringResource(R.string.pensionHistoryLoading), Modifier.padding(vertical = 28.dp))
-                    } else {
-                        PensionEmptyMessage(
-                            text = stringResource(R.string.pensionHistoryEmpty),
-                            action = stringResource(R.string.pensionGoBuy),
-                            onAction = onGoBuy,
-                        )
-                    }
-                }
-            }
-            items(groups, key = { it.round }) { group -> PensionRoundCard(group) }
-            if (state.canLoadMore) {
-                item(key = "more") {
-                    Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
-                        if (state.historyLoading) {
-                            CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
-                        } else {
-                            TextButton(onClick = actions.onLoadMoreHistory) {
-                                Text(stringResource(R.string.historyLoadMore), fontWeight = FontWeight.ExtraBold)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PensionEmptyMessage(text: String, action: String, onAction: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(text, style = MaterialTheme.typography.bodyLarge)
-        OutlinedButton(onClick = onAction) { Text(action) }
-    }
-}
-
-@Composable
-private fun PensionRoundCard(group: PensionRoundGroup) {
-    SectionCard(contentPadding = PaddingValues(16.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.roundLabel, group.round),
-                    fontWeight = FontWeight.ExtraBold,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    Round720.getDrawDate(group.round).toString(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            when {
-                group.ranks.any { it == Rank720.PENDING } && group.winning == null ->
-                    StatusPill(stringResource(R.string.pensionRankPending), PillTone.Pending)
-                group.won -> StatusPill(stringResource(R.string.pensionWonPill), PillTone.Win)
-                else -> StatusPill(stringResource(R.string.statusNoWin), PillTone.Lose)
-            }
-        }
-        group.winning?.let { win ->
-            Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(R.string.pensionWinningLine, win.jo, win.number, win.bonusNumber),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        group.tickets.zip(group.ranks).forEach { (ticket, rank) ->
-            Spacer(Modifier.height(12.dp))
-            PensionNumberRow(
-                stringResource(R.string.pensionGroupLabel, ticket.jo),
-                ticket.number,
-                matchedDigits = if (rank == Rank720.PENDING) null else rank.matchedDigits,
-                groupMatched = rank == Rank720.FIRST,
-            )
-            if (rank != Rank720.PENDING) {
-                Spacer(Modifier.height(4.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    StatusPill(pensionRankText(rank), if (rank == Rank720.NONE) PillTone.Lose else PillTone.Win)
-                    val prize = pensionPrizeLabel(rank)
-                    if (prize != null) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(prize, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-        if (group.lumpTotal > 0) {
-            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            Text(
-                stringResource(R.string.pensionLumpTotal, formatNumber(group.lumpTotal)),
-                fontWeight = FontWeight.ExtraBold,
-            )
-        }
-    }
-}
-
-@Composable
-private fun pensionRankText(rank: Rank720): String = stringResource(
-    when (rank) {
-        Rank720.FIRST -> R.string.pensionRank1
-        Rank720.SECOND -> R.string.pensionRank2
-        Rank720.THIRD -> R.string.pensionRank3
-        Rank720.FOURTH -> R.string.pensionRank4
-        Rank720.FIFTH -> R.string.pensionRank5
-        Rank720.SIXTH -> R.string.pensionRank6
-        Rank720.SEVENTH -> R.string.pensionRank7
-        Rank720.BONUS -> R.string.pensionRankBonus
-        Rank720.NONE -> R.string.statusNoWin
-        Rank720.PENDING -> R.string.pensionRankPending
-    },
-)
-
-@Composable
-private fun pensionPrizeLabel(rank: Rank720): String? = when (rank) {
-    Rank720.FIRST -> stringResource(R.string.pensionPrizeFirst)
-    Rank720.SECOND, Rank720.BONUS -> stringResource(R.string.pensionPrizeSecond)
-    Rank720.NONE, Rank720.PENDING -> null
-    else -> stringResource(R.string.historyWon, formatNumber(rank.lumpPrize))
 }
 
 // ===== 자릿수 공 =====

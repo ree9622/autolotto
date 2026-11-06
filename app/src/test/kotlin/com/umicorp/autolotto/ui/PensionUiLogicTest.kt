@@ -10,7 +10,10 @@ import com.umicorp.autolotto.ui.screen.PensionDigitColors
 import com.umicorp.autolotto.ui.screen.SlotEditMode
 import com.umicorp.autolotto.ui.screen.buildPensionSlot
 import com.umicorp.autolotto.ui.vm.pensionHistoryWindows
+import com.umicorp.autolotto.ui.vm.PensionHistoryFilter
+import com.umicorp.autolotto.ui.vm.filteredBy
 import com.umicorp.autolotto.ui.vm.pensionRoundGroups
+import com.umicorp.autolotto.ui.vm.summarizePensionHistory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -68,6 +71,39 @@ class PensionUiLogicTest {
         val group = pensionRoundGroups(listOf(ticket(330, 2, "111111", Rank720.THIRD)), emptyMap()).single()
         assertEquals(Rank720.THIRD, group.ranks.single())
         assertNull(group.winning)
+    }
+
+    @Test
+    fun `summary adds lump prizes only and counts annuity wins separately`() {
+        // 339회: 1등 1장(연금식) + 7등 1장(1천원) + 낙첨 1장, 338회: 3등(1백만원), 341회: 추첨 전 2장
+        val groups = pensionRoundGroups(
+            listOf(
+                ticket(339, 3, "604270"), ticket(339, 1, "999990"), ticket(339, 2, "555551"),
+                ticket(338, 2, "111111", Rank720.THIRD),
+                ticket(341, 1, "123456"), ticket(341, 2, "123456"),
+            ),
+            mapOf(339 to WinningNumbers720(339, 3, "604270", "111333", "2026-10-29")),
+        )
+        val summary = summarizePensionHistory(groups)
+
+        assertEquals(6_000L, summary.spent)
+        assertEquals(1_001_000L, summary.lumpPrize)
+        assertEquals(995_000L, summary.net)
+        assertEquals(1, summary.annuityWins)
+        assertEquals(2, summary.winningRounds)
+        assertEquals(1, summary.pendingRounds)
+    }
+
+    @Test
+    fun `filters keep winning or pending rounds only`() {
+        val groups = pensionRoundGroups(
+            listOf(ticket(341, 1, "123456"), ticket(340, 1, "000000", Rank720.NONE), ticket(339, 1, "111111", Rank720.THIRD)),
+            emptyMap(),
+        )
+        assertEquals(listOf(341, 340, 339), groups.filteredBy(PensionHistoryFilter.ALL).map { it.round })
+        assertEquals(listOf(339), groups.filteredBy(PensionHistoryFilter.WINNING).map { it.round })
+        assertEquals(listOf(341), groups.filteredBy(PensionHistoryFilter.PENDING).map { it.round })
+        assertEquals(0, summarizePensionHistory(emptyList()).spent)
     }
 
     @Test

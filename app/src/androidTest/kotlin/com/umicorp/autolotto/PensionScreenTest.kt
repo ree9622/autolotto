@@ -16,7 +16,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.then
 import androidx.compose.ui.unit.DpSize
@@ -24,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.umicorp.autolotto.data.FallbackPolicy
 import com.umicorp.autolotto.data.NumberConfig720
+import com.umicorp.autolotto.data.Rank720
 import com.umicorp.autolotto.data.Slot720
 import com.umicorp.autolotto.data.Ticket720
 import com.umicorp.autolotto.data.WinningNumbers720
@@ -37,6 +43,7 @@ import com.umicorp.autolotto.ui.screen.PensionUiState
 import com.umicorp.autolotto.ui.theme.AutoLottoTheme
 import com.umicorp.autolotto.ui.vm.PensionBuyState
 import org.junit.Assert.assertEquals
+import java.time.LocalDate
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -91,6 +98,11 @@ class PensionScreenTest {
         val bitmap = node.captureToImage().asAndroidBitmap()
         val directory = InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("pension-proof")!!
         File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    /** 좁은 화면은 통계 칸 아래에 카드가 있어 목록을 그 자리까지 내린 뒤 확인한다. */
+    private fun scrollHistoryTo(text: String) {
+        compose.onNodeWithTag("pension-history").performScrollToNode(hasText(text))
     }
 
     @Test fun buyPaneShowsNumbersAmountAndReadsNumberAsOneRow() {
@@ -230,13 +242,16 @@ class PensionScreenTest {
             ),
         )
         compose.onNodeWithTag("pension-tab-history").performClick()
-        compose.onNodeWithText("제 341회").assertExists()
+        capture("history-380")
+        scrollHistoryTo("제 341회")
         compose.onNodeWithText("추첨 전").assertExists()
+        scrollHistoryTo("일시금 합계 1,000,000원")
         compose.onNodeWithText("1등").assertExists()
         compose.onNodeWithText("월 700만원 × 20년").assertExists()
         compose.onNodeWithText("3등").assertExists()
-        compose.onNodeWithText("일시금 합계 1,000,000원").assertExists()
-        capture("history-380")
+        compose.onNodeWithText("연금식 당첨 1건").assertExists()
+        compose.onNodeWithText("이 회차 당첨번호").assertExists()
+        capture("history-380-card")
     }
 
     @Test fun historyEmptyStatesLeadSomewhere() {
@@ -254,7 +269,7 @@ class PensionScreenTest {
     @Test fun historyEmptyGoesBackToBuy() {
         show()
         compose.onNodeWithTag("pension-tab-history").performClick()
-        compose.onNodeWithText("최근 1년 구매 내역이 아직 없습니다.").assertExists()
+        scrollHistoryTo("최근 1년 구매 내역이 아직 없습니다.")
         capture("history-empty-380")
         compose.onNodeWithText("번호 고르러 가기").performClick()
         compose.onNodeWithTag("pension-buy").assertExists()
@@ -271,9 +286,9 @@ class PensionScreenTest {
         )
         compose.onNodeWithTag("pension-tab-history").performClick()
         compose.onNodeWithText("내역을 불러오지 못했습니다.").assertExists()
-        compose.onNodeWithContentDescription("1조 123456").assertExists()
         compose.onNodeWithText("다시 시도").performClick()
         assertEquals(1, retried)
+        compose.onNodeWithTag("pension-history").performScrollToNode(hasContentDescription("1조 123456"))
     }
 
     @Test fun winningFailureOffersRetry() {
@@ -291,6 +306,78 @@ class PensionScreenTest {
         compose.onNodeWithText("목요일 17시~22시는 판매가 멈춥니다. 다른 시간을 골라주세요.").assertExists()
     }
 
+    private val historyState = state.copy(
+        tickets = listOf(
+            Ticket720(341, 1, "123456", purchaseDate = date),
+            Ticket720(340, 3, "604270", purchaseDate = date),
+            Ticket720(340, 1, "004270", purchaseDate = date),
+            Ticket720(339, 2, "111111", Rank720.NONE, purchaseDate = date),
+        ),
+        winningByRound = mapOf(340 to winning),
+        canLoadMore = true,
+        windowsLoaded = 1,
+        loadedFrom = LocalDate.of(2026, 8, 6),
+        loadedTo = LocalDate.of(2026, 11, 6),
+    )
+
+    private fun inSummary(text: String) {
+        compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag("pension-history-summary"))).assertExists()
+    }
+
+    @Test fun historySummaryShowsTotalsAndAnnuitySeparately() {
+        show(historyState)
+        compose.onNodeWithTag("pension-tab-history").performClick()
+        compose.onNodeWithText("2026-08-06 ~ 2026-11-06").assertExists()
+        inSummary("4,000원")        // 4장 구매
+        inSummary("1,000,000원")    // 3등 일시금
+        inSummary("996,000원")      // 손익
+        compose.onNodeWithText("연금식 당첨 1건 · 매달 받는 당첨금이라 합계에서 뺐습니다").assertExists()
+        compose.onNodeWithText("당첨 1회 · 추첨 대기 1회").assertExists()
+        compose.onNodeWithText("일부 기간만 집계 · 1/4 기간 완료").assertExists()
+    }
+
+    @Test fun historyFiltersNarrowRounds() {
+        show(historyState)
+        compose.onNodeWithTag("pension-tab-history").performClick()
+        compose.onNodeWithText("3개 회차").assertExists()
+        compose.onNodeWithTag("pension-filter-winning").performClick()
+        compose.onNodeWithText("1개 회차").assertExists()
+        scrollHistoryTo("제 340회")
+        compose.onNodeWithText("제 341회").assertDoesNotExist()
+        compose.onNodeWithTag("pension-filter-pending").performClick()
+        scrollHistoryTo("제 341회")
+        compose.onNodeWithText("제 340회").assertDoesNotExist()
+        capture("history-filter-pending-380")
+    }
+
+    @Test fun historyLoadAllAndRefreshCallActions() {
+        var all = 0
+        var refresh = 0
+        show(historyState, actions = PensionActions(onLoadAllHistory = { all++ }, onRefreshHistory = { refresh++ }))
+        compose.onNodeWithTag("pension-history-refresh").assertDoesNotExist()   // 구매 화면에는 없다.
+        compose.onNodeWithTag("pension-tab-history").performClick()
+        compose.onNodeWithTag("pension-history-load-all").performClick()
+        compose.onNodeWithTag("pension-history-refresh").performClick()
+        assertEquals(1, all)
+        assertEquals(1, refresh)
+    }
+
+    @Test fun historyLoadingAllShowsProgressAndDisablesButton() {
+        show(historyState.copy(historyLoading = true, loadingAll = true, historyProgress = 2))
+        compose.onNodeWithTag("pension-tab-history").performClick()
+        compose.onNodeWithText("전체 내역 불러오는 중 · 2/4 기간 완료").assertExists()
+        compose.onNodeWithTag("pension-history-load-all").assertIsNotEnabled()
+    }
+
+    @Test fun historyWideUsesTwoPanes() {
+        show(historyState, size = DpSize(1180.dp, 820.dp))
+        compose.onNodeWithTag("pension-tab-history").performClick()
+        compose.onNodeWithTag("pension-history-wide").assertExists()
+        compose.onNodeWithTag("pension-history-summary").assertExists()
+        compose.onNodeWithText("제 341회").assertExists()
+        capture("history-wide-1180")
+    }
+
     private fun viewport(name: String, width: Int, height: Int, fontScale: Float = 1f, dark: Boolean = false) {
         show(
             state.copy(
@@ -304,8 +391,9 @@ class PensionScreenTest {
         compose.onNodeWithContentDescription("3조 604270").assertExists()
         capture(name)
         compose.onNodeWithTag("pension-tab-history").performClick()
-        compose.onNodeWithText("1등").assertExists()
         capture("$name-history")
+        scrollHistoryTo("1등")
+        capture("$name-history-card")
     }
 
     @Test fun viewportFolded() = viewport("fold-360", 360, 780)

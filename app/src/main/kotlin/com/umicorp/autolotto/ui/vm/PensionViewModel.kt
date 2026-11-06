@@ -57,8 +57,41 @@ internal data class PensionRoundGroup(
     val winning: WinningNumbers720?,
 ) {
     val won: Boolean get() = ranks.any { it != Rank720.NONE && it != Rank720.PENDING }
+    val pending: Boolean get() = ranks.any { it == Rank720.PENDING }
     val lumpTotal: Long get() = ranks.sumOf { it.lumpPrize }
+    /** 1·2등·보너스는 매달 나눠 받는 연금식이라 금액 합계에 넣지 않고 건수로 따로 보인다. */
+    val annuityWins: Int get() = ranks.count { it.isAnnuity }
 }
+
+internal val Rank720.isAnnuity: Boolean
+    get() = this == Rank720.FIRST || this == Rank720.SECOND || this == Rank720.BONUS
+
+internal enum class PensionHistoryFilter { ALL, WINNING, PENDING }
+
+internal fun List<PensionRoundGroup>.filteredBy(filter: PensionHistoryFilter): List<PensionRoundGroup> = when (filter) {
+    PensionHistoryFilter.ALL -> this
+    PensionHistoryFilter.WINNING -> filter { it.won }
+    PensionHistoryFilter.PENDING -> filter { it.pending }
+}
+
+/** 불러온 기간 전체의 구매·당첨 합계. 일시금(3~7등)만 금액에 넣고 연금식은 [annuityWins]로 센다. */
+internal data class PensionHistorySummary(
+    val spent: Long,
+    val lumpPrize: Long,
+    val annuityWins: Int,
+    val winningRounds: Int,
+    val pendingRounds: Int,
+) {
+    val net: Long get() = lumpPrize - spent
+}
+
+internal fun summarizePensionHistory(groups: List<PensionRoundGroup>): PensionHistorySummary = PensionHistorySummary(
+    spent = groups.sumOf { it.tickets.size } * PensionOrder.UNIT_PRICE.toLong(),
+    lumpPrize = groups.sumOf { it.lumpTotal },
+    annuityWins = groups.sumOf { it.annuityWins },
+    winningRounds = groups.count { it.won },
+    pendingRounds = groups.count { it.pending },
+)
 
 /**
  * 티켓을 최신 회차부터 묶는다. 당첨번호가 있으면 그것으로 다시 판정해 내역 응답의 미추첨 표시로 낙첨처럼 보이는 일을
@@ -233,9 +266,19 @@ class PensionViewModel(private val container: AppContainer) : ViewModel() {
     val historyFailed: StateFlow<Boolean> = _historyFailed.asStateFlow()
     private val _canLoadMore = MutableStateFlow(false)
     val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
+    /** 화면에 보이는 목록이 덮는 3개월 기간 수(0~4). 성공한 조회만 늘린다. */
+    private val _windowsLoaded = MutableStateFlow(0)
+    val windowsLoaded: StateFlow<Int> = _windowsLoaded.asStateFlow()
+    /** 진행 중인 조회에서 받아 온 기간 수. 「1년 전체 불러오기」 진행 표시용. */
+    private val _historyProgress = MutableStateFlow(0)
+    val historyProgress: StateFlow<Int> = _historyProgress.asStateFlow()
+    private val _loadingAll = MutableStateFlow(false)
+    val loadingAll: StateFlow<Boolean> = _loadingAll.asStateFlow()
+    private val _historyToday = MutableStateFlow<LocalDate?>(null)
+    val historyToday: StateFlow<LocalDate?> = _historyToday.asStateFlow()
 
     private var shownUser: String? = null
-    private var windowsLoaded = 0
+    private val windowsLoadedCount: Int get() = _windowsLoaded.value
     private var historyJob: Job? = null
 
     init {
@@ -245,7 +288,7 @@ class PensionViewModel(private val container: AppContainer) : ViewModel() {
                 .collect { (logged, user) ->
                     if (!logged) {
                         resetHistory()
-                    } else if (shownUser != user || windowsLoaded == 0) {
+                    } else if (shownUser != user || windowsLoadedCount == 0) {
                         resetHistory()
                         shownUser = user
                         loadHistory()
@@ -258,36 +301,50 @@ class PensionViewModel(private val container: AppContainer) : ViewModel() {
         historyJob?.cancel()
         historyJob = null
         shownUser = null
-        windowsLoaded = 0
+        _windowsLoaded.value = 0
+        _historyProgress.value = 0
+        _historyToday.value = null
         _tickets.value = emptyList()
         _winningByRound.value = emptyMap()
         _canLoadMore.value = false
         _historyFailed.value = false
         _historyLoading.value = false
+        _loadingAll.value = false
     }
 
     /** 이미 불러온 기간 전체를 다시 조회한다. 실패하면 기존 목록을 그대로 둔다. */
-    fun loadHistory() = runHistory(windowCount = windowsLoaded.coerceAtLeast(1))
+    fun loadHistory() = runHistory(windowCount = windowsLoadedCount.coerceAtLeast(1))
 
-    fun loadMoreHistory() = runHistory(windowCount = windowsLoaded + 1)
+    fun loadMoreHistory() = runHistory(windowCount = windowsLoadedCount + 1)
 
-    private fun runHistory(windowCount: Int) {
+    /** 최근 1년(3개월 4구간)을 모두 불러와 통계가 1년 전체를 덮게 한다. */
+    fun loadAllHistory() = runHistory(windowCount = Int.MAX_VALUE, all = true)
+
+    private fun runHistory(windowCount: Int, all: Boolean = false) {
         if (historyJob?.isActive == true || !container.isLoggedIn.value) return
         val user = shownUser
-        val windows = pensionHistoryWindows(LocalDate.now(Round720.KST))
+        val today = LocalDate.now(Round720.KST)
+        val windows = pensionHistoryWindows(today)
         val count = windowCount.coerceAtMost(windows.size)
         _historyLoading.value = true
+        _loadingAll.value = all
+        _historyProgress.value = 0
         _historyFailed.value = false
         historyJob = viewModelScope.launch {
             try {
-                val loaded = windows.take(count).flatMap { (from, to) ->
-                    container.historyService720.fetchPurchases(from, to)
+                val loaded = mutableListOf<Ticket720>()
+                windows.take(count).forEachIndexed { index, (from, to) ->
+                    loaded += container.historyService720.fetchPurchases(from, to)
+                    _historyProgress.value = index + 1
                 }
                 if (user != container.loggedInUserId.value) return@launch   // 이전 계정의 늦은 응답은 버린다.
+                // 목록을 바꾸기 전에 당첨번호를 받아 둔다. 중간에 실패해도 기존 목록과 기간 표시가 서로 어긋나지 않는다.
+                val winning = container.resultService720.getWinningNumbersMap(loaded.mapTo(mutableSetOf()) { it.round })
                 _tickets.value = loaded
-                windowsLoaded = count
+                _winningByRound.value = winning
+                _windowsLoaded.value = count
+                _historyToday.value = today
                 _canLoadMore.value = count < windows.size
-                _winningByRound.value = container.resultService720.getWinningNumbersMap(loaded.mapTo(mutableSetOf()) { it.round })
                 container.reconcilePension(loaded, user)
             } catch (e: CancellationException) {
                 throw e
@@ -295,6 +352,7 @@ class PensionViewModel(private val container: AppContainer) : ViewModel() {
                 _historyFailed.value = true
             } finally {
                 _historyLoading.value = false
+                _loadingAll.value = false
             }
         }
     }

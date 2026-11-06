@@ -315,8 +315,12 @@
     <string name="pensionHistoryLoading">Loading your history</string>
     <string name="pensionHistoryFailed">Could not load your history.</string>
     <string name="pensionWonPill">Won</string>
-    <string name="pensionWinningLine">Winning: group %1$d %2$s · bonus %3$s</string>
     <string name="pensionLumpTotal">Lump sum total %1$s KRW</string>
+    <string name="pensionSummaryLump">Total prize (lump sum)</string>
+    <string name="pensionSummaryAnnuity">%1$d annuity win(s) · paid monthly, so not included in the total</string>
+    <string name="pensionSummaryScope">For the loaded period · Only 3rd–7th lump-sum prizes are added, before tax.</string>
+    <string name="pensionWinningCaption">Winning numbers for this draw</string>
+    <string name="pensionAnnuityCount">%1$d annuity win(s)</string>
     <string name="pensionRank1">1st</string>
     <string name="pensionRank2">2nd</string>
     <string name="pensionRank3">3rd</string>
