@@ -7,7 +7,6 @@
     <string name="nav_home">홈</string>
     <string name="nav_numbers">번호</string>
     <string name="nav_history">내역</string>
-    <string name="nav_pension">연금</string>
     <string name="nav_settings">설정</string>
     <string name="bottomNavHome">홈</string>
     <string name="bottomNavNumbers">번호설정</string>
@@ -252,8 +251,9 @@
 
     <!-- 연금복권720+ -->
     <string name="pensionTitle">연금복권720+</string>
-    <string name="pensionTabBuy">구매</string>
-    <string name="pensionTabHistory">내역</string>
+    <string name="productLotto">로또 6/45</string>
+    <string name="productPension">연금복권720+</string>
+    <string name="pensionAutoOffHint">번호 탭에서 켤 수 있습니다</string>
     <string name="pensionLatestWinning">제 %1$d회 당첨번호</string>
     <string name="pensionGroupLabel">%1$d조</string>
     <string name="pensionBonusLabel">보너스 각 조</string>

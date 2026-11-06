@@ -5,7 +5,6 @@
     <string name="nav_home">ホーム</string>
     <string name="nav_numbers">番号</string>
     <string name="nav_history">履歴</string>
-    <string name="nav_pension">年金</string>
     <string name="nav_settings">設定</string>
     <string name="bottomNavHome">ホーム</string>
     <string name="bottomNavNumbers">番号設定</string>
@@ -245,8 +244,9 @@
 
     <!-- 연금복권720+ -->
     <string name="pensionTitle">年金宝くじ720+</string>
-    <string name="pensionTabBuy">購入</string>
-    <string name="pensionTabHistory">履歴</string>
+    <string name="productLotto">ロト6/45</string>
+    <string name="productPension">年金宝くじ720+</string>
+    <string name="pensionAutoOffHint">番号タブでオンにできます</string>
     <string name="pensionLatestWinning">第%1$d回 当選番号</string>
     <string name="pensionGroupLabel">%1$d組</string>
     <string name="pensionBonusLabel">ボーナス 各組</string>

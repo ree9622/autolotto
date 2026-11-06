@@ -5,7 +5,6 @@
     <string name="nav_home">Home</string>
     <string name="nav_numbers">Numbers</string>
     <string name="nav_history">History</string>
-    <string name="nav_pension">Pension</string>
     <string name="nav_settings">Settings</string>
     <string name="bottomNavHome">Home</string>
     <string name="bottomNavNumbers">Numbers</string>
@@ -245,8 +244,9 @@
 
     <!-- 연금복권720+ -->
     <string name="pensionTitle">Pension Lottery 720+</string>
-    <string name="pensionTabBuy">Buy</string>
-    <string name="pensionTabHistory">History</string>
+    <string name="productLotto">Lotto 6/45</string>
+    <string name="productPension">Pension 720+</string>
+    <string name="pensionAutoOffHint">Turn it on in the Numbers tab</string>
     <string name="pensionLatestWinning">Draw %1$d winning numbers</string>
     <string name="pensionGroupLabel">Group %1$d</string>
     <string name="pensionBonusLabel">Bonus, all groups</string>
