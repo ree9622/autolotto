@@ -54,6 +54,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -461,14 +465,14 @@ private fun GamesCard(state: PensionUiState, actions: PensionActions) {
             stringResource(R.string.pensionGamesTitle),
             Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
-        SwitchRow(
-            title = stringResource(R.string.pensionSetTitle),
-            subtitle = { Text(stringResource(R.string.pensionSetBody)) },
-            checked = config.setMode,
+        BuyModeSelector(
+            setMode = config.setMode,
             enabled = state.configLoaded,
             onChange = { actions.onSaveConfig(config.slots, config.fallback, it) },
         )
-        if (!config.setMode) {
+        if (config.setMode) {
+            SetPreview()
+        } else {
             HorizontalDivider()
             config.slots.forEachIndexed { i, slot ->
                 SlotRow(
@@ -493,6 +497,58 @@ private fun GamesCard(state: PensionUiState, actions: PensionActions) {
                 editingSlot = null
                 actions.onSaveConfig(config.slots.toMutableList().also { it[i] = slot }, config.fallback, config.setMode)
             },
+        )
+    }
+}
+
+/** 구매 방식: 게임마다 따로 고르기 / 같은 번호로 1~5조. 고른 쪽의 결과를 바로 아래에 풀어 쓴다. */
+@Composable
+private fun BuyModeSelector(setMode: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(false to R.string.pensionModeSeparate, true to R.string.pensionModeSet)
+                .forEachIndexed { index, (value, label) ->
+                    SegmentedButton(
+                        selected = setMode == value,
+                        onClick = { if (setMode != value) onChange(value) },
+                        enabled = enabled,
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                        modifier = Modifier.testTag(if (value) "pension-mode-set" else "pension-mode-separate"),
+                    ) { Text(stringResource(label)) }
+                }
+        }
+        Text(
+            stringResource(if (setMode) R.string.pensionModeSetBody else R.string.pensionModeSeparateBody),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 세트 미리보기: 1~5조에 같은 번호 하나가 들어간다는 것을 그림으로 보여 준다. */
+@Composable
+private fun SetPreview() {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(scheme.surfaceVariant)
+            .padding(12.dp)
+            .testTag("pension-set-preview"),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        (1..5).forEach { jo ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.pensionSetPreviewGroup, jo), Modifier.width(44.dp), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.pensionSetPreviewNumber), letterSpacing = 2.sp, color = scheme.onSurfaceVariant)
+            }
+        }
+        Text(
+            stringResource(R.string.pensionSetPreviewCaption),
+            style = MaterialTheme.typography.bodySmall,
+            color = scheme.onSurfaceVariant,
         )
     }
 }
@@ -943,8 +999,15 @@ private fun PickExtraDialog(state: PensionBuyState.PickingExtra, actions: Pensio
                     FilterChip(
                         selected = isSet,
                         onClick = { choice = 0 },
-                        label = { Text(stringResource(R.string.pensionSetChip)) },
+                        label = { Text(stringResource(R.string.pensionModeSet)) },
                         modifier = Modifier.testTag("pension-extra-set"),
+                    )
+                }
+                if (isSet) {
+                    Text(
+                        stringResource(R.string.pensionModeSetBody),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
