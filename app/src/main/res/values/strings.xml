@@ -81,7 +81,9 @@
     <!-- 설정 -->
     <string name="settingsTitle">설정</string>
     <string name="sectionAccount">계정</string>
-    <string name="sectionAutoPurchase">자동 구매</string>
+    <string name="sectionAutoPurchase">로또 자동 구매</string>
+    <string name="sectionPensionAutoPurchase">연금복권 자동 구매</string>
+    <string name="hintPensionAutoInNumbers">연금복권 번호 화면에서 켜고 요일·시간을 정합니다</string>
     <string name="sectionNotifications">알림</string>
     <string name="sectionAppInfo">앱 정보</string>
 

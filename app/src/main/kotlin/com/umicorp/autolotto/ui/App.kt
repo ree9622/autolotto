@@ -99,6 +99,7 @@ import com.umicorp.autolotto.ui.screen.NumberScreen
 import com.umicorp.autolotto.ui.screen.PensionPage
 import com.umicorp.autolotto.ui.screen.PensionPageContent
 import com.umicorp.autolotto.ui.screen.rememberPensionUi
+import com.umicorp.autolotto.ui.screen.PensionAutoInfo
 import com.umicorp.autolotto.ui.screen.SettingsScreen
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -283,6 +284,13 @@ fun AppShell(pendingTab: MutableStateFlow<String?>? = null) {
                         goTo(PAGE_NUMBERS)
                     },
                     onNavigateToDeposit = { showDepositScreen = true },
+                    pensionAuto = PensionAutoInfo(
+                        pension.state.autoEnabled, pension.state.autoDay, pension.state.autoHour, pension.state.autoMinute,
+                    ),
+                    onNavigateToPensionNumbers = {
+                        selectProduct(Product.PENSION)
+                        goTo(PAGE_NUMBERS)
+                    },
                 )
             }
         }

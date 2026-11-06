@@ -75,7 +75,9 @@
 
     <string name="settingsTitle">設定</string>
     <string name="sectionAccount">アカウント</string>
-    <string name="sectionAutoPurchase">自動購入</string>
+    <string name="sectionAutoPurchase">ロト自動購入</string>
+    <string name="sectionPensionAutoPurchase">年金宝くじ自動購入</string>
+    <string name="hintPensionAutoInNumbers">年金宝くじの番号画面でオンにして曜日と時間を設定します</string>
     <string name="sectionNotifications">通知</string>
     <string name="sectionAppInfo">アプリ情報</string>
 
