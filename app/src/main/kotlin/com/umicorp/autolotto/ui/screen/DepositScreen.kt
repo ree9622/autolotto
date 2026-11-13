@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -55,7 +54,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -73,7 +71,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -105,7 +102,6 @@ fun DepositScreen(
     val isLoggedIn by vm.isLoggedIn.collectAsState()
     val balance by vm.balance.collectAsState()
     val selectedAmount by vm.selectedAmount.collectAsState()
-    val customAmount by vm.customAmount.collectAsState()
     val uiState by vm.uiState.collectAsState()
 
     Scaffold(
@@ -275,7 +271,7 @@ fun DepositScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 vm.presetAmounts.forEach { amt ->
-                                    val isSelected = selectedAmount == amt && customAmount.isEmpty()
+                                    val isSelected = selectedAmount == amt
                                     FilterChip(
                                         selected = isSelected,
                                         onClick = { vm.selectPresetAmount(amt) },
@@ -293,19 +289,6 @@ fun DepositScreen(
                                 }
                             }
 
-                            Spacer(Modifier.height(16.dp))
-
-                            OutlinedTextField(
-                                value = customAmount,
-                                onValueChange = { vm.setCustomAmount(it) },
-                                label = { Text(stringResource(R.string.depositCustomAmount)) },
-                                placeholder = { Text(stringResource(R.string.depositAmountHint)) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
-                                prefix = { Text("₩ ", fontWeight = FontWeight.Bold) },
-                                suffix = { Text("원") },
-                            )
                         }
 
                         // 유의사항 안내

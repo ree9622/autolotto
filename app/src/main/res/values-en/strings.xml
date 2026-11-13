@@ -223,8 +223,6 @@
     <string name="depositTitle">Deposit</string>
     <string name="depositCurrentBalance">Current Balance</string>
     <string name="depositSelectAmount">Select Amount</string>
-    <string name="depositCustomAmount">Custom Amount (KRW)</string>
-    <string name="depositAmountHint">Enter 5,000 KRW or more</string>
     <string name="depositBtnIssue">Issue Virtual Account</string>
     <string name="depositIssuing">Issuing virtual account…</string>
     <string name="depositAccountTitle">K Bank Virtual Account</string>

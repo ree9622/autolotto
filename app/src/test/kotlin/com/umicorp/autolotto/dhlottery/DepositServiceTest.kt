@@ -55,8 +55,8 @@ class DepositServiceTest {
             {
               "data": {
                 "resVO": {
-                  "resultCode": "SUCCESS",
-                  "resultMsg": "정상처리",
+                  "resultCode": "4120",
+                  "resultMsg": "가상계좌 예치금 충전 요청",
                   "vbankNum": "08912345678901",
                   "vbankBankName": "케이뱅크",
                   "buyerName": "홍길동",
@@ -151,6 +151,46 @@ class DepositServiceTest {
         assertTrue("FAIL 응답 시 Failure여야 함", result is DepositResult.Failure)
         val failure = result as DepositResult.Failure
         assertEquals("일일 충전 한도 초과", failure.message)
+    }
+
+    @Test
+    fun `정해진 목록 밖 금액(9000원)은 서버 호출 없이 Failure`() = runBlocking {
+        val baseUrl = server.url("/").toString().trimEnd('/')
+        val service = DepositService(DhlotterySession(baseUrl = baseUrl, olottoUrl = baseUrl))
+
+        val result = service.requestVirtualAccount(9_000)
+
+        assertTrue("9000원은 고정 가상계좌가 받지 않는 금액", result is DepositResult.Failure)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `성공 코드(4120)가 아니면 계좌를 보여주지 않는다`() = runBlocking {
+        val initJson = """{"data":{"reqVO":{"amt":"10000","fxVrAccountNo":"08912345678901"}}}"""
+        val processJson = """
+            {"data":{"resVO":{"resultCode":"9999","resultMsg":"금액 오류","vbankNum":"08912345678901"}}}
+        """.trimIndent()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                when (request.path?.substringBefore('?')) {
+                    ApiConstants.KBANK_INIT -> ok(initJson)
+                    ApiConstants.KBANK_PROCESS -> ok(processJson)
+                    else -> ok("")
+                }
+        }
+        val baseUrl = server.url("/").toString().trimEnd('/')
+        val service = DepositService(DhlotterySession(baseUrl = baseUrl, olottoUrl = baseUrl))
+
+        val result = service.requestVirtualAccount(10_000)
+
+        assertTrue(result is DepositResult.Failure)
+        assertEquals("금액 오류", (result as DepositResult.Failure).message)
+    }
+
+    @Test
+    fun `15만원은 허용 목록에 포함`() {
+        assertTrue(150_000 in DepositService.ALLOWED_PRESET_AMOUNTS)
+        assertTrue(9_000 !in DepositService.ALLOWED_PRESET_AMOUNTS)
     }
 
     @Test

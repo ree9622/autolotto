@@ -21,11 +21,15 @@ class DepositService(private val session: DhlotterySession) {
 
     /**
      * [amount] 금액에 대한 케이뱅크 가상계좌 발급을 신청합니다.
-     * 최소 충전 금액은 5,000원입니다.
+     * 금액은 [ALLOWED_PRESET_AMOUNTS] 중 하나여야 합니다.
      */
     suspend fun requestVirtualAccount(amount: Int): DepositResult = withContext(Dispatchers.IO) {
         if (amount < MIN_DEPOSIT_AMOUNT) {
             return@withContext DepositResult.Failure("최소 충전 금액은 5,000원입니다.")
+        }
+        // 고정 가상계좌는 동행복권이 정한 금액만 입금받는다(목록 밖 금액은 은행 앱에서 송금 거절).
+        if (amount !in ALLOWED_PRESET_AMOUNTS) {
+            return@withContext DepositResult.Failure("충전 금액은 5천·1만·2만·3만·5만·10만·15만 원 중에서 골라주세요.")
         }
 
         try {
@@ -107,11 +111,16 @@ class DepositService(private val session: DhlotterySession) {
             val resVo = processData.optJSONObject("resVO")
                 ?: return@withContext DepositResult.Failure("가상계좌 처리 결과(resVO)를 받지 못했습니다.")
 
+            // 성공은 4120("가상계좌 예치금 충전 요청")뿐이다. 그 외 코드는 계좌에 금액이 등록되지 않은 것으로 본다.
             val resultCode = resVo.optString("resultCode", "")
-            if (resultCode.equals("FAIL", ignoreCase = true)) {
-                val errorMsg = resVo.optString("resultMsg", "가상계좌 발급이 거절되었습니다.")
+            if (resultCode != SUCCESS_RESULT_CODE) {
+                val errorMsg = resVo.optString("resultMsg", "").ifBlank { "가상계좌 발급이 거절되었습니다." }
                 return@withContext DepositResult.Failure(errorMsg)
             }
+            // 은행에 실제 등록된 금액(서버 응답)을 우선한다. 송금 앱에 다른 금액을 넘기면 입금이 거절된다.
+            val registeredAmount = resVo.optString("amt", "").filter { it.isDigit() }.toIntOrNull()
+                ?: amt.filter { it.isDigit() }.toIntOrNull()
+                ?: amount
 
             val vbankNum = resVo.optString("vbankNum", "").ifBlank {
                 resVo.optString("fxVrAccountNo", "")
@@ -134,7 +143,7 @@ class DepositService(private val session: DhlotterySession) {
                     accountNumber = vbankNum,
                     formattedAccount = formatted,
                     buyerName = resolvedBuyer,
-                    amount = amount,
+                    amount = registeredAmount,
                     expirationDate = formattedExpDate,
                 )
             )
@@ -148,7 +157,9 @@ class DepositService(private val session: DhlotterySession) {
 
     companion object {
         const val MIN_DEPOSIT_AMOUNT = 5_000
-        val ALLOWED_PRESET_AMOUNTS = listOf(5_000, 10_000, 20_000, 30_000, 50_000, 100_000)
+        /** 동행복권 충전 화면 `select#VcAmt` 실측 목록. 15만 원은 고정 가상계좌 1일 입금 한도. */
+        val ALLOWED_PRESET_AMOUNTS = listOf(5_000, 10_000, 20_000, 30_000, 50_000, 100_000, 150_000)
+        const val SUCCESS_RESULT_CODE = "4120"
 
         private val EXP_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
 

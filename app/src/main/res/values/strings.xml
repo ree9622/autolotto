@@ -230,8 +230,6 @@
     <string name="depositTitle">예치금 충전</string>
     <string name="depositCurrentBalance">현재 보유 예치금</string>
     <string name="depositSelectAmount">충전 금액 선택</string>
-    <string name="depositCustomAmount">직접 입력 (원)</string>
-    <string name="depositAmountHint">5,000원 이상 입력</string>
     <string name="depositBtnIssue">충전용 가상계좌 발급하기</string>
     <string name="depositIssuing">가상계좌 발급 중...</string>
     <string name="depositAccountTitle">입금 전용 케이뱅크 가상계좌</string>
