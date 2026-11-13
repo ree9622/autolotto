@@ -35,29 +35,15 @@ class DepositViewModel(private val container: AppContainer) : ViewModel() {
     private val _selectedAmount = MutableStateFlow(10_000)
     val selectedAmount: StateFlow<Int> = _selectedAmount.asStateFlow()
 
-    private val _customAmount = MutableStateFlow("")
-    val customAmount: StateFlow<String> = _customAmount.asStateFlow()
-
     private val _uiState = MutableStateFlow<DepositUiState>(DepositUiState.Idle)
     val uiState: StateFlow<DepositUiState> = _uiState.asStateFlow()
 
     val presetAmounts = DepositService.ALLOWED_PRESET_AMOUNTS
 
-    /** 프리셋 금액 선택 (5,000, 10,000, 20,000 등). */
+    /** 금액 선택. 고정 가상계좌라 정해진 금액만 고를 수 있다. */
     fun selectPresetAmount(amount: Int) {
+        if (amount !in DepositService.ALLOWED_PRESET_AMOUNTS) return
         _selectedAmount.value = amount
-        _customAmount.value = ""
-        if (_uiState.value is DepositUiState.Error) {
-            _uiState.value = DepositUiState.Idle
-        }
-    }
-
-    /** 직접 입력 금액 설정. */
-    fun setCustomAmount(input: String) {
-        val digits = input.filter { it.isDigit() }
-        _customAmount.value = digits
-        val parsed = digits.toIntOrNull() ?: 0
-        _selectedAmount.value = parsed
         if (_uiState.value is DepositUiState.Error) {
             _uiState.value = DepositUiState.Idle
         }
@@ -66,8 +52,8 @@ class DepositViewModel(private val container: AppContainer) : ViewModel() {
     /** 현재 선택된 금액으로 가상계좌 발급 요청. */
     fun requestVirtualAccount() {
         val amount = _selectedAmount.value
-        if (amount < DepositService.MIN_DEPOSIT_AMOUNT) {
-            _uiState.value = DepositUiState.Error("최소 충전 금액은 5,000원입니다.")
+        if (amount !in DepositService.ALLOWED_PRESET_AMOUNTS) {
+            _uiState.value = DepositUiState.Error("충전 금액을 골라주세요.")
             return
         }
 
