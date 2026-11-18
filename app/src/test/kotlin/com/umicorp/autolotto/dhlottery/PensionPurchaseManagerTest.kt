@@ -389,4 +389,114 @@ class PensionPurchaseManagerTest {
         val attempt = PendingAttempt(340, 20000L, 3000, true, "userA")
         assertEquals(attempt, parsePendingAttempt(attempt.toJson()))
     }
+
+    // ===== 출금 없음 확인 후 잠금 해제 =====
+
+    /** connPro 결과 불명으로 잠긴 상태(가드·원장·미결 모두 남음)를 만든다. */
+    private suspend fun lockedByUnknown(store: FakeStore, order: PensionOrder = PensionOrder.ExtraSet): PensionOutcome =
+        manager(store).purchase(FakeGateway(onPurchase = { _, _ -> throw UNKNOWN }), order, ROUND)
+
+    @Test
+    fun `release undoes guard ledger and pending when history shows no charge and allows buying again`() = runBlocking {
+        val store = FakeStore()
+        assertTrue(lockedByUnknown(store, PensionOrder.Configured(ONE_GAME)) is PensionOutcome.ResultUnknown)
+        assertEquals(ROUND, store.lastRound)
+        assertNotNull(store.pending)
+
+        val outcome = manager(store).releaseUncharged(FakeGateway())
+
+        assertEquals(PensionReleaseOutcome.Released, outcome)
+        assertNull(store.pending)
+        assertEquals(0, spent(store))
+        assertTrue(store.lastRound < ROUND)
+        val gateway = FakeGateway()
+        assertTrue(manager(store).purchase(gateway, PensionOrder.Configured(ONE_GAME), ROUND) is PensionOutcome.Purchased)
+        assertEquals(1, gateway.purchases)
+    }
+
+    @Test
+    fun `release keeps the lock when history cannot be read`() = runBlocking {
+        val store = FakeStore()
+        lockedByUnknown(store)
+        val before = store.pending
+
+        val outcome = manager(store).releaseUncharged(FakeGateway(history = { throw IOException("down") }))
+
+        assertEquals(PensionReleaseOutcome.HistoryUnavailable, outcome)
+        assertEquals(before, store.pending)
+        assertEquals(ROUND, store.lastRound)
+    }
+
+    @Test
+    fun `release keeps the lock when login fails`() = runBlocking {
+        val store = FakeStore()
+        lockedByUnknown(store)
+
+        val outcome = manager(store).releaseUncharged(FakeGateway(loginError = IOException("down")))
+
+        assertEquals(PensionReleaseOutcome.HistoryUnavailable, outcome)
+        assertNotNull(store.pending)
+    }
+
+    @Test
+    fun `release settles as purchased when history covers the attempt`() = runBlocking {
+        val store = FakeStore()
+        lockedByUnknown(store)
+
+        val outcome = manager(store).releaseUncharged(FakeGateway(history = { tickets(ROUND, 5) }))
+
+        assertTrue(outcome is PensionReleaseOutcome.Purchased)
+        assertNull(store.pending)
+        assertEquals(ROUND, store.lastRound)
+        assertEquals(5000, spent(store))
+    }
+
+    @Test
+    fun `release keeps the lock when history shows tickets the ledger does not explain`() = runBlocking {
+        val store = FakeStore()
+        lockedByUnknown(store)
+
+        val outcome = manager(store).releaseUncharged(FakeGateway(history = { tickets(ROUND, 2) }))
+
+        assertEquals(PensionReleaseOutcome.ChargeSeen, outcome)
+        assertNotNull(store.pending)
+        assertEquals(ROUND, store.lastRound)
+    }
+
+    @Test
+    fun `release after an earlier confirmed purchase keeps that purchase's guard and ledger`() = runBlocking {
+        val store = FakeStore()
+        manager(store).purchase(FakeGateway(), PensionOrder.Configured(ONE_GAME), ROUND)
+        lockedByUnknown(store, PensionOrder.ExtraAuto(2))
+
+        val outcome = manager(store).releaseUncharged(FakeGateway(history = { tickets(ROUND, 1) }))
+
+        assertEquals(PensionReleaseOutcome.Released, outcome)
+        assertNull(store.pending)
+        assertEquals(ROUND, store.lastRound)
+        assertEquals(1000, spent(store))
+    }
+
+    @Test
+    fun `release does not touch another account's pending`() = runBlocking {
+        val store = FakeStore()
+        lockedByUnknown(store)
+        store.user = "userB"
+
+        assertEquals(PensionReleaseOutcome.NothingToRelease, manager(store).releaseUncharged(FakeGateway()))
+        assertNotNull(store.pending)
+    }
+
+    @Test
+    fun `release keeps pending when clearing fails`() = runBlocking {
+        val store = FakeStore()
+        lockedByUnknown(store)
+        store.failClear = true
+
+        assertEquals(PensionReleaseOutcome.SaveFailed, manager(store).releaseUncharged(FakeGateway()))
+        assertNotNull(store.pending)
+        val gateway = FakeGateway()
+        assertEquals(PensionOutcome.PendingUnresolved, manager(store).purchase(gateway, PensionOrder.ExtraSet, ROUND))
+        assertEquals(0, gateway.purchases)
+    }
 }

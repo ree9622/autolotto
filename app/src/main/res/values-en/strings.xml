@@ -312,6 +312,15 @@
     <string name="pensionNotLoggedIn">Log in to buy.</string>
     <string name="pensionUnknownTitle">Check the purchase result</string>
     <string name="pensionUnknownBody">Could not confirm whether the purchase went through. To prevent a double charge, buying for this draw is paused. Please check your history.</string>
+    <string name="pensionReleaseAsk">Not charged</string>
+    <string name="pensionReleaseTitle">Unlock purchase</string>
+    <string name="pensionReleaseBody">Only unlock if your deposit history on the lottery site shows no charge for this draw. The app will re-check your purchase history before unlocking.</string>
+    <string name="pensionReleaseConfirm">Unlock</string>
+    <string name="pensionReleaseDone">Unlocked. You can buy for this draw again.</string>
+    <string name="pensionReleaseChargeSeen">Your history shows a purchase for this draw, so it stays locked. Please check your history.</string>
+    <string name="pensionReleaseHistoryFailed">Could not check your purchase history, so it stays locked. Please try again later.</string>
+    <string name="pensionReleaseNothing">Nothing to unlock. Please try buying again.</string>
+    <string name="pensionReleaseSaveFailed">Could not save the record, so it stays locked. Please try again later.</string>
     <string name="pensionFailedTitle">Purchase failed</string>
     <string name="pensionFailedBody">You were not charged. Please try again shortly.</string>
     <string name="pensionHistoryLogin">Log in to see your purchases.</string>

@@ -312,6 +312,15 @@
     <string name="pensionNotLoggedIn">ログインすると購入できます。</string>
     <string name="pensionUnknownTitle">購入結果の確認が必要</string>
     <string name="pensionUnknownBody">購入が処理されたか確認できませんでした。二重決済を防ぐため今回の購入を一時停止しました。履歴で確認してください。</string>
+    <string name="pensionReleaseAsk">引き落としなし</string>
+    <string name="pensionReleaseTitle">購入ロックの解除</string>
+    <string name="pensionReleaseBody">宝くじサイトの預り金履歴で今回の引き落としがないことを確認した場合のみ解除してください。アプリが購入履歴を再確認してから解除します。</string>
+    <string name="pensionReleaseConfirm">解除する</string>
+    <string name="pensionReleaseDone">ロックを解除しました。今回の購入をもう一度できます。</string>
+    <string name="pensionReleaseChargeSeen">購入履歴に今回の購入があるため、ロックを維持しました。履歴を確認してください。</string>
+    <string name="pensionReleaseHistoryFailed">購入履歴を確認できなかったため、ロックを維持しました。しばらくしてから再度お試しください。</string>
+    <string name="pensionReleaseNothing">解除するロックはありません。もう一度購入してください。</string>
+    <string name="pensionReleaseSaveFailed">記録を保存できなかったため、ロックを維持しました。しばらくしてから再度お試しください。</string>
     <string name="pensionFailedTitle">購入できませんでした</string>
     <string name="pensionFailedBody">決済されていません。しばらくしてからもう一度お試しください。</string>
     <string name="pensionHistoryLogin">ログインすると購入履歴を確認できます。</string>
