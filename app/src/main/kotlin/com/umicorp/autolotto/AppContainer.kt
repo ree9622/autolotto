@@ -512,6 +512,13 @@ class AppContainer(context: Context) {
         outcome
     }
 
+    /** 사용자가 출금 없음을 확인한 뒤 결과 불명 잠금을 푼다. 내역을 다시 조회해 확인하는 판단은 관리자가 한다. */
+    suspend fun releasePensionLock(): com.umicorp.autolotto.dhlottery.PensionReleaseOutcome = withContext(Dispatchers.IO) {
+        val outcome = pensionManager.releaseUncharged(DhlotteryPensionGateway(resultService720))
+        refreshPensionPurchasedRound()
+        outcome
+    }
+
     /** 내역 조회 결과로 결과 불명 구매를 해소한다. [owner]는 그 목록을 조회한 계정. */
     suspend fun reconcilePension(tickets: List<Ticket720>, owner: String?) = withContext(Dispatchers.IO) {
         pensionManager.reconcile(tickets, owner)

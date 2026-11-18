@@ -13,6 +13,7 @@ import com.umicorp.autolotto.data.WinningNumbers720
 import com.umicorp.autolotto.data.lumpPrize
 import com.umicorp.autolotto.dhlottery.PensionOrder
 import com.umicorp.autolotto.dhlottery.PensionOutcome
+import com.umicorp.autolotto.dhlottery.PensionReleaseOutcome
 import com.umicorp.autolotto.dhlottery.PurchaseResult720
 import com.umicorp.autolotto.dhlottery.Round720
 import kotlinx.coroutines.CancellationException
@@ -39,6 +40,10 @@ sealed interface PensionBuyState {
     data object NothingBought : PensionBuyState
     data object NotLoggedIn : PensionBuyState
     data object ResultUnknown : PensionBuyState
+    /** 결과 불명 잠금을 풀기 전 사용자에게 출금 여부 확인을 다시 받는다. */
+    data object ConfirmingRelease : PensionBuyState
+    /** 잠금 해제 요청 결과. */
+    data class ReleaseDone(val outcome: PensionReleaseOutcome) : PensionBuyState
     data class Failed(val message: String?) : PensionBuyState
 }
 
@@ -204,6 +209,30 @@ class PensionViewModel(private val container: AppContainer) : ViewModel() {
     fun confirmExtraSet() {
         val s = _buyState.value as? PensionBuyState.PickingExtra ?: return
         launchBuy(PensionOrder.ExtraSet, s.round)
+    }
+
+    /** 결과 불명 창의 "출금 안 됐어요" → 확인창. */
+    fun askRelease() {
+        if (_buyState.value == PensionBuyState.ResultUnknown) _buyState.value = PensionBuyState.ConfirmingRelease
+    }
+
+    fun confirmRelease() {
+        if (_buyState.value != PensionBuyState.ConfirmingRelease) return
+        _buyState.value = PensionBuyState.InProgress
+        viewModelScope.launch {
+            val outcome = try {
+                container.releasePensionLock()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                PensionReleaseOutcome.HistoryUnavailable
+            }
+            _buyState.value = when (outcome) {
+                is PensionReleaseOutcome.Purchased -> PensionBuyState.Success(outcome.result)
+                else -> PensionBuyState.ReleaseDone(outcome)
+            }
+            loadHistory()
+        }
     }
 
     fun dismissBuy() {

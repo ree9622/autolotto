@@ -102,6 +102,7 @@ import com.umicorp.autolotto.data.lumpPrize
 import com.umicorp.autolotto.data.matchedDigits
 import com.umicorp.autolotto.dhlottery.PensionFailure
 import com.umicorp.autolotto.dhlottery.PensionOrder
+import com.umicorp.autolotto.dhlottery.PensionReleaseOutcome
 import com.umicorp.autolotto.dhlottery.PurchaseResult720
 import com.umicorp.autolotto.dhlottery.Round720
 import com.umicorp.autolotto.dhlottery.classifyPensionFailure
@@ -153,6 +154,8 @@ internal data class PensionActions(
     val onConfirmExtraAuto: (Int) -> Unit = {},
     val onConfirmExtraSet: () -> Unit = {},
     val onDismissBuy: () -> Unit = {},
+    val onAskRelease: () -> Unit = {},
+    val onConfirmRelease: () -> Unit = {},
     val onSetAutoEnabled: (Boolean) -> Unit = {},
     val onSetAutoDay: (Int) -> Boolean = { true },
     val onSetAutoTime: (Int, Int) -> Boolean = { _, _ -> true },
@@ -247,6 +250,8 @@ internal fun rememberPensionUi(
             onConfirmExtraAuto = vm::confirmExtraAuto,
             onConfirmExtraSet = vm::confirmExtraSet,
             onDismissBuy = vm::dismissBuy,
+            onAskRelease = vm::askRelease,
+            onConfirmRelease = vm::confirmRelease,
             onSetAutoEnabled = { enabled ->
                 vm.setAutoEnabled(enabled)
                 // 6/45 자동구매와 같게: 켤 때 배터리 최적화 제외를 안내해 예약 구매를 놓치지 않게 한다.
@@ -891,6 +896,36 @@ private fun PensionBuyDialogs(state: PensionBuyState, actions: PensionActions, o
                     Text(stringResource(R.string.pensionShowHistory))
                 }
             },
+            // 결제되지 않았는데 회차 내내 막히는 일을 푸는 길. 확인창을 한 번 더 거치고 앱이 내역을 다시 대조한다.
+            dismissButton = {
+                TextButton(onClick = actions.onAskRelease, modifier = Modifier.testTag("pension-unknown-release")) {
+                    Text(stringResource(R.string.pensionReleaseAsk))
+                }
+            },
+        )
+        PensionBuyState.ConfirmingRelease -> AlertDialog(
+            onDismissRequest = dismiss,
+            title = { Text(stringResource(R.string.pensionReleaseTitle)) },
+            text = { Text(stringResource(R.string.pensionReleaseBody)) },
+            confirmButton = {
+                TextButton(onClick = actions.onConfirmRelease, modifier = Modifier.testTag("pension-release-confirm")) {
+                    Text(stringResource(R.string.pensionReleaseConfirm))
+                }
+            },
+            dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.buttonCancel)) } },
+        )
+        is PensionBuyState.ReleaseDone -> NoticeDialog(
+            R.string.pensionReleaseTitle,
+            stringResource(
+                when (state.outcome) {
+                    PensionReleaseOutcome.Released -> R.string.pensionReleaseDone
+                    PensionReleaseOutcome.ChargeSeen -> R.string.pensionReleaseChargeSeen
+                    PensionReleaseOutcome.HistoryUnavailable -> R.string.pensionReleaseHistoryFailed
+                    PensionReleaseOutcome.NothingToRelease -> R.string.pensionReleaseNothing
+                    PensionReleaseOutcome.SaveFailed, is PensionReleaseOutcome.Purchased -> R.string.pensionReleaseSaveFailed
+                },
+            ),
+            dismiss,
         )
         is PensionBuyState.Failed -> {
             val needsDeposit = state.message?.let { "예치금" in it || "잔액" in it } == true

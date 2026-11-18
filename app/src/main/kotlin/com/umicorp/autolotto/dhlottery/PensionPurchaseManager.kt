@@ -56,6 +56,22 @@ sealed interface PensionOrder {
     }
 }
 
+/** 사용자가 "출금되지 않음"을 확인하고 잠금 해제를 요청한 결과. */
+sealed interface PensionReleaseOutcome {
+    /** 결제 흔적이 없어 미결·가드·원장을 되돌렸다. 이번 회차를 다시 살 수 있다. */
+    data object Released : PensionReleaseOutcome
+    /** 다시 조회해 보니 앞선 시도가 구매 내역으로 확인됐다. 잠금 대신 구매 확정으로 정리했다. */
+    data class Purchased(val result: PurchaseResult720) : PensionReleaseOutcome
+    /** 내역에 이 앱 기록으로 설명되지 않는 이번 회차 구매가 있다. 결제됐을 수 있어 잠금을 유지한다. */
+    data object ChargeSeen : PensionReleaseOutcome
+    /** 로그인·내역 조회 실패. 확인하지 못했으니 잠금을 유지한다. */
+    data object HistoryUnavailable : PensionReleaseOutcome
+    /** 풀 잠금이 없거나 다른 계정의 기록이다. */
+    data object NothingToRelease : PensionReleaseOutcome
+    /** 기록 저장 실패. 잠금을 유지한다. */
+    data object SaveFailed : PensionReleaseOutcome
+}
+
 /** 구매 시도의 결과. 호출자(화면·워커)는 이 값을 문구로만 옮기고 안전 판단은 하지 않는다. */
 sealed interface PensionOutcome {
     /** 결제 응답을 확인했거나 내역 대조로 확정된 구매. 부분 성공이면 [PurchaseResult720.partialFailure]가 있다. */
@@ -173,6 +189,60 @@ class PensionPurchaseManager(
         settle(pending, userId, tickets) != null
     }
 
+    /**
+     * 결과 불명으로 잠긴 회차를 사용자가 "예치금이 빠져나가지 않았다"고 확인한 뒤 푼다.
+     *
+     * 사용자 확인만으로 풀지 않는다. 락 안에서 로그인·구매 내역을 다시 조회하고
+     * - 조회 실패 → 유지(확인 못 함),
+     * - 내역이 앞선 시도를 설명 → 구매 확정으로 정리,
+     * - 이 앱 원장(이번 시도 제외)보다 많은 이번 회차 티켓 → 결제됐을 수 있어 유지,
+     * - 그 외 → 이번 시도의 원장 금액·회차 가드를 되돌리고 미결을 지운다.
+     * 저장 순서는 원장 → 미결 표식(inLedger=false) → 가드 → 미결 삭제다. 중간에 실패하면 미결이 남아 결제를 계속 막는다.
+     */
+    suspend fun releaseUncharged(gateway: PensionGateway): PensionReleaseOutcome = lock.withLock {
+        val pending = parsePendingAttempt(store.getPensionPending()) ?: return@withLock PensionReleaseOutcome.NothingToRelease
+        val userId = store.pensionUserId()
+        val password = store.pensionPassword()
+        if (userId == null || password == null || pending.owner != userId) return@withLock PensionReleaseOutcome.NothingToRelease
+
+        val tickets = try {
+            gateway.login(userId, password)
+            gateway.recentTickets()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withLock PensionReleaseOutcome.HistoryUnavailable
+        }
+
+        settle(pending, userId, tickets)?.let { settled ->
+            return@withLock PensionReleaseOutcome.Purchased(
+                PurchaseResult720(pending.round, settled, pending.amount, confirmedByHistory = true),
+            )
+        }
+
+        val otherSpent = spentInRound(pending.round) - (if (pending.inLedger) pending.amount else 0)
+        val seen = tickets.count { it.round == pending.round } * PensionOrder.UNIT_PRICE
+        if (seen > otherSpent) return@withLock PensionReleaseOutcome.ChargeSeen
+
+        withContext(NonCancellable) {
+            if (pending.inLedger) {
+                if (!runCatching { removeSpend(pending) }.getOrDefault(false)) return@withContext PensionReleaseOutcome.SaveFailed
+                // 원장에서 뺀 사실을 바로 새긴다. 아래 단계가 실패해도 다음 대조가 금액을 빼먹지 않는다.
+                if (!runCatching { store.setPensionPending(pending.copy(inLedger = false).toJson()) }.getOrDefault(false)) {
+                    return@withContext PensionReleaseOutcome.SaveFailed
+                }
+            }
+            // 이 회차에 이 앱으로 산 다른 구매가 없을 때만 가드를 낮춘다. 있으면 그 구매의 가드가 정당하다.
+            if (otherSpent <= 0 && purchasedRound(userId) == pending.round) {
+                if (!runCatching { store.setPensionLastPurchase(pending.round - 1, userId) }.getOrDefault(false)) {
+                    return@withContext PensionReleaseOutcome.SaveFailed
+                }
+            }
+            if (!runCatching { store.clearPensionPending() }.getOrDefault(false)) return@withContext PensionReleaseOutcome.SaveFailed
+            PensionReleaseOutcome.Released
+        }
+    }
+
     /** 이 계정 기준으로 해당 회차를 이미 샀는가. */
     fun purchasedRound(userId: String?): Int =
         accountScopedRound(store.getPensionLastRound(), store.getPensionLastOwner(), userId)
@@ -265,6 +335,15 @@ class PensionPurchaseManager(
         val next = (parseSpendLedger(store.getPensionLedger()) + SpendEntry(round, day, amount))
             .filter { it.epochDay > day - LEDGER_KEEP_DAYS }
         return store.setPensionLedger(spendLedgerToJson(next))
+    }
+
+    /** [pending]이 원장에 남긴 항목 하나만 지운다. 같은 값의 다른 항목은 건드리지 않는다. */
+    private fun removeSpend(pending: PendingAttempt): Boolean {
+        val entries = parseSpendLedger(store.getPensionLedger()).toMutableList()
+        val i = entries.indexOfFirst { it.round == pending.round && it.epochDay == pending.epochDay && it.amount == pending.amount }
+        if (i < 0) return true
+        entries.removeAt(i)
+        return store.setPensionLedger(spendLedgerToJson(entries))
     }
 
     private companion object {
